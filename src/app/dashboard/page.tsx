@@ -24,7 +24,7 @@ export default function DashboardPage() {
 
             {/* Summary Cards */}
             <Grid container spacing={3} sx={{ mb: 4 }}>
-                <Grid item xs={12} md={4}>
+                <Grid size={{ xs: 12, md: 4 }}>
                     <Card
                         sx={{
                             bgcolor: 'primary.main',
@@ -44,7 +44,7 @@ export default function DashboardPage() {
                     </Card>
                 </Grid>
 
-                <Grid item xs={12} md={4}>
+                <Grid size={{ xs: 12, md: 4 }}>
                     <Card sx={{ borderRadius: 4 }}>
                         <CardContent>
                             <Typography variant="subtitle2" color="text.secondary">Monthly Expenses (June)</Typography>
@@ -57,7 +57,7 @@ export default function DashboardPage() {
                     </Card>
                 </Grid>
 
-                <Grid item xs={12} md={4}>
+                <Grid size={{ xs: 12, md: 4 }}>
                     <Card sx={{ borderRadius: 4 }}>
                         <CardContent>
                             <Typography variant="subtitle2" color="text.secondary">Net Worth (Gold + Real Estate)</Typography>
@@ -70,7 +70,7 @@ export default function DashboardPage() {
 
             {/* Analytics Chart */}
             <Grid container spacing={3}>
-                <Grid item xs={12} md={8}>
+                <Grid size={{ xs: 12, md: 8 }}>
                     <Paper sx={{ p: 3, borderRadius: 4, height: 400 }}>
                         <Typography variant="h6" gutterBottom fontWeight="bold">Income vs Expense Trend</Typography>
                         <ResponsiveContainer width="100%" height="100%">
@@ -93,7 +93,7 @@ export default function DashboardPage() {
                     </Paper>
                 </Grid>
 
-                <Grid item xs={12} md={4}>
+                <Grid size={{ xs: 12, md: 4 }}>
                     <Paper sx={{ p: 3, borderRadius: 4, height: '100%' }}>
                         <Typography variant="h6" gutterBottom fontWeight="bold">Quick Actions</Typography>
                         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
