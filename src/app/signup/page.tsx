@@ -12,7 +12,10 @@ import {
     Paper,
     Alert,
     Link as MuiLink,
+    IconButton,
+    InputAdornment,
 } from '@mui/material';
+import { Visibility, VisibilityOff } from '@mui/icons-material';
 import Link from 'next/link';
 
 export default function SignupPage() {
@@ -20,8 +23,17 @@ export default function SignupPage() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
+
+    const handleClickShowPassword = () => setShowPassword((show) => !show);
+    const handleClickShowConfirmPassword = () => setShowConfirmPassword((show) => !show);
+
+    const handleMouseDownPassword = (event: React.MouseEvent<HTMLButtonElement>) => {
+        event.preventDefault();
+    };
 
     const handleSignup = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -100,10 +112,24 @@ export default function SignupPage() {
                             fullWidth
                             name="password"
                             label="Password"
-                            type="password"
+                            type={showPassword ? 'text' : 'password'}
                             id="password"
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
+                            InputProps={{
+                                endAdornment: (
+                                    <InputAdornment position="end">
+                                        <IconButton
+                                            aria-label="toggle password visibility"
+                                            onClick={handleClickShowPassword}
+                                            onMouseDown={handleMouseDownPassword}
+                                            edge="end"
+                                        >
+                                            {showPassword ? <VisibilityOff /> : <Visibility />}
+                                        </IconButton>
+                                    </InputAdornment>
+                                ),
+                            }}
                             sx={{ mb: 2 }}
                         />
                         <TextField
@@ -112,10 +138,24 @@ export default function SignupPage() {
                             fullWidth
                             name="confirmPassword"
                             label="Confirm Password"
-                            type="password"
+                            type={showConfirmPassword ? 'text' : 'password'}
                             id="confirmPassword"
                             value={confirmPassword}
                             onChange={(e) => setConfirmPassword(e.target.value)}
+                            InputProps={{
+                                endAdornment: (
+                                    <InputAdornment position="end">
+                                        <IconButton
+                                            aria-label="toggle confirm password visibility"
+                                            onClick={handleClickShowConfirmPassword}
+                                            onMouseDown={handleMouseDownPassword}
+                                            edge="end"
+                                        >
+                                            {showConfirmPassword ? <VisibilityOff /> : <Visibility />}
+                                        </IconButton>
+                                    </InputAdornment>
+                                ),
+                            }}
                             sx={{ mb: 3 }}
                         />
                         <Button
