@@ -97,3 +97,111 @@ export const getBankAccounts = async (userId: string) => {
         throw error;
     }
 }
+
+// --- Milk Tracker ---
+
+export interface MilkLog {
+    id?: string;
+    userId: string;
+    date: string; // YYYY-MM-DD
+    quantity: number;
+    pricePerLiter: number;
+    cost: number;
+    boiled: boolean;
+    status: 'bought' | 'skipped';
+    vendorName?: string;
+    timestamp: Timestamp;
+}
+
+export interface MilkPayment {
+    id?: string;
+    userId: string;
+    date: string; // YYYY-MM-DD
+    amount: number;
+    note?: string;
+    timestamp: Timestamp;
+}
+
+export const addMilkLog = async (userId: string, data: Omit<MilkLog, 'id' | 'userId' | 'timestamp'>) => {
+    try {
+        // Check if log exists for this date to prevent duplicates
+        const q = query(
+            collection(db, 'milk_logs'),
+            where('userId', '==', userId),
+            where('date', '==', data.date)
+        );
+        const snapshot = await getDocs(q);
+
+        if (!snapshot.empty) {
+            // Update existing
+            const docId = snapshot.docs[0].id;
+            await updateDoc(doc(db, 'milk_logs', docId), {
+                ...data,
+                timestamp: Timestamp.now()
+            });
+            return docId;
+        }
+
+        const docRef = await addDoc(collection(db, 'milk_logs'), {
+            ...data,
+            userId,
+            timestamp: Timestamp.now()
+        });
+        return docRef.id;
+    } catch (error) {
+        console.error("Error adding milk log:", error);
+        throw error;
+    }
+};
+
+export const addMilkPayment = async (userId: string, data: Omit<MilkPayment, 'id' | 'userId' | 'timestamp'>) => {
+    try {
+        const docRef = await addDoc(collection(db, 'milk_payments'), {
+            ...data,
+            userId,
+            timestamp: Timestamp.now()
+        });
+        return docRef.id;
+    } catch (error) {
+        console.error("Error adding milk payment:", error);
+        throw error;
+    }
+};
+
+export const getMilkLogs = async (userId: string, monthStr?: string) => {
+    // monthStr format: "YYYY-MM"
+    try {
+        let q = query(
+            collection(db, 'milk_logs'),
+            where('userId', '==', userId),
+            orderBy('date', 'desc')
+        );
+
+        // Basic filtering if needed, but client-side filtering might be easier for small datasets
+        const snapshot = await getDocs(q);
+        const logs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as MilkLog[];
+
+        if (monthStr) {
+            return logs.filter(log => log.date.startsWith(monthStr));
+        }
+        return logs;
+    } catch (error) {
+        console.error("Error getting milk logs:", error);
+        throw error;
+    }
+};
+
+export const getMilkPayments = async (userId: string) => {
+    try {
+        const q = query(
+            collection(db, 'milk_payments'),
+            where('userId', '==', userId),
+            orderBy('date', 'desc')
+        );
+        const snapshot = await getDocs(q);
+        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as MilkPayment[];
+    } catch (error) {
+        console.error("Error getting milk payments:", error);
+        throw error;
+    }
+};
