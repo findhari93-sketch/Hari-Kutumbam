@@ -110,6 +110,7 @@ export interface MilkLog {
     boiled: boolean;
     status: 'bought' | 'skipped';
     vendorName?: string;
+    recordedBy?: string; // Name of user who added this
     timestamp: Timestamp;
 }
 
@@ -119,15 +120,15 @@ export interface MilkPayment {
     date: string; // YYYY-MM-DD
     amount: number;
     note?: string;
+    recordedBy?: string; // Name of user who added this
     timestamp: Timestamp;
 }
 
 export const addMilkLog = async (userId: string, data: Omit<MilkLog, 'id' | 'userId' | 'timestamp'>) => {
     try {
-        // Check if log exists for this date to prevent duplicates
+        // Check if log exists for this date (globally for family)
         const q = query(
             collection(db, 'milk_logs'),
-            where('userId', '==', userId),
             where('date', '==', data.date)
         );
         const snapshot = await getDocs(q);
@@ -136,7 +137,7 @@ export const addMilkLog = async (userId: string, data: Omit<MilkLog, 'id' | 'use
             // Update existing
             const docId = snapshot.docs[0].id;
             await updateDoc(doc(db, 'milk_logs', docId), {
-                ...data,
+                ...data, // This might overwrite recordedBy, which is fine or we can preserve it
                 timestamp: Timestamp.now()
             });
             return docId;
@@ -173,7 +174,7 @@ export const getMilkLogs = async (userId: string, monthStr?: string) => {
     try {
         let q = query(
             collection(db, 'milk_logs'),
-            where('userId', '==', userId),
+            // Removed userId filter for shared family view
             orderBy('date', 'desc')
         );
 
@@ -195,7 +196,7 @@ export const getMilkPayments = async (userId: string) => {
     try {
         const q = query(
             collection(db, 'milk_payments'),
-            where('userId', '==', userId),
+            // Removed userId filter for shared family view
             orderBy('date', 'desc')
         );
         const snapshot = await getDocs(q);

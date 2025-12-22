@@ -76,7 +76,8 @@ export const useMilkData = () => {
             cost,
             boiled,
             status,
-            vendorName: 'Default' // Configurable later
+            vendorName: 'Default',
+            recordedBy: user.displayName || user.email?.split('@')[0] || 'Unknown'
         });
         await fetchData(); // Refresh
     };
@@ -87,7 +88,8 @@ export const useMilkData = () => {
         await addPaymentService(user.uid, {
             date: paymentDate,
             amount,
-            note
+            note,
+            recordedBy: user.displayName || user.email?.split('@')[0] || 'Unknown'
         });
         await fetchData();
     };

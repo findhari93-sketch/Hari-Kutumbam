@@ -241,7 +241,16 @@ export default function MilkTrackerPage() {
                                         </ListItemAvatar>
                                         <ListItemText
                                             primary={log.status === 'bought' ? `${log.quantity} Liter(s)` : 'No Milk'}
-                                            secondary={log.date}
+                                            secondary={
+                                                <span>
+                                                    {log.date}
+                                                    {log.recordedBy && (
+                                                        <Typography component="span" variant="caption" sx={{ display: 'block', color: 'text.secondary' }}>
+                                                            By: {log.recordedBy}
+                                                        </Typography>
+                                                    )}
+                                                </span>
+                                            }
                                         />
                                     </ListItem>
                                     <Divider component="li" />
