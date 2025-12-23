@@ -1,5 +1,5 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     Box,
     TextField,
@@ -8,60 +8,110 @@ import {
     InputLabel,
     Select,
     MenuItem,
-    FormControlLabel,
-    Switch,
-    Typography,
-    Paper,
-    Tabs,
-    Tab,
     OutlinedInput,
     InputAdornment,
+    IconButton,
+    Tooltip,
+    ToggleButtonGroup,
+    ToggleButton,
+    Accordion,
+    AccordionSummary,
+    AccordionDetails,
+    Divider
 } from '@mui/material';
-import { addTransaction, Transaction } from '@/services/firestore'; // We'll mock this for now or use the service
-import { useAuth } from '@/context/AuthContext';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
-import { parseScreenshot } from '@/services/ocr';
+import SettingsIcon from '@mui/icons-material/Settings';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { CircularProgress } from '@mui/material';
+import { parseScreenshot } from '@/services/ocr';
+import { Expense, Category } from '@/types';
+import { Timestamp } from 'firebase/firestore';
+import { categoryService } from '@/services/categoryService';
+import { useAuth } from '@/context/AuthContext';
+import { useRouter } from 'next/navigation';
 
 interface ExpenseFormProps {
-    onSuccess?: () => void;
+    initialData?: Expense | null;
+    onSave: (data: Partial<Expense>) => Promise<void>;
+    onCancel: () => void;
 }
 
-export default function ExpenseForm({ onSuccess }: ExpenseFormProps) {
+export default function ExpenseForm({ initialData, onSave, onCancel }: ExpenseFormProps) {
     const { user } = useAuth();
-    const [tabIndex, setTabIndex] = useState(0); // 0: Expense, 1: Income
+    const router = useRouter();
     const [loading, setLoading] = useState(false);
     const [scanning, setScanning] = useState(false);
+    const [categories, setCategories] = useState<Category[]>([]);
 
     // Form State
-    const [amount, setAmount] = useState('');
+    const [amount, setAmount] = useState<string | number>('');
+    const [categoryName, setCategoryName] = useState('');
+    const [subcategory, setSubcategory] = useState('');
+    const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
     const [description, setDescription] = useState('');
-    const [category, setCategory] = useState('');
-    const [date, setDate] = useState(new Date().toISOString().split('T')[0]); // YYYY-MM-DD
-    const [paymentMode, setPaymentMode] = useState('online');
-    const [isMothersMoney, setIsMothersMoney] = useState(false);
-    const [bankAccount, setBankAccount] = useState(''); // Would come from context/db
+    const [source, setSource] = useState<'My Money' | 'Wife Money' | 'Mother Money'>('My Money');
 
-    const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
-        setTabIndex(newValue);
-    };
+    // New Fields
+    const [paymentMode, setPaymentMode] = useState<'Cash' | 'UPI' | 'Card' | 'NetBanking'>('Cash');
+    const [transactionId, setTransactionId] = useState('');
+    const [googleTransactionId, setGoogleTransactionId] = useState('');
+    const [senderName, setSenderName] = useState('');
+    const [receiverName, setReceiverName] = useState('');
+    const [bankName, setBankName] = useState('');
+
+    useEffect(() => {
+        if (user) {
+            categoryService.getUserCategories(user.uid).then(setCategories);
+        }
+    }, [user]);
+
+    useEffect(() => {
+        if (initialData) {
+            setAmount(initialData.amount);
+            setCategoryName(initialData.category);
+            setSubcategory(initialData.subcategory || '');
+            setDescription(initialData.description);
+            setSource(initialData.source);
+
+            // Format Date
+            const d = initialData.date instanceof Timestamp
+                ? initialData.date.toDate()
+                : new Date(initialData.date);
+            // Handle ISO string from OCR which might have time
+            setDate(d.toISOString().split('T')[0]);
+
+            // New Fields
+            if (initialData.paymentMode) setPaymentMode(initialData.paymentMode);
+            if (initialData.transactionId) setTransactionId(initialData.transactionId);
+            if (initialData.googleTransactionId) setGoogleTransactionId(initialData.googleTransactionId);
+            if (initialData.senderName) setSenderName(initialData.senderName);
+            if (initialData.receiverName) setReceiverName(initialData.receiverName);
+            if (initialData.bankName) setBankName(initialData.bankName);
+        }
+    }, [initialData]);
+
+    const selectedCategory = categories.find(c => c.name === categoryName);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!user) return;
         setLoading(true);
-
         try {
-            const type = tabIndex === 0 ? 'expense' : 'income';
-            // In a real app we would call addTransaction here
-            console.log('Submitting:', {
-                amount, category, date, paymentMode, isMothersMoney, type
-            });
-            // await addTransaction(user.uid, { ... });
+            await onSave({
+                amount: Number(amount),
+                category: categoryName,
+                subcategory,
+                description,
+                source,
+                date: new Date(date),
 
-            setAmount('');
-            setDescription('');
-            if (onSuccess) onSuccess();
+                // New Fields
+                paymentMode,
+                transactionId,
+                googleTransactionId,
+                senderName,
+                receiverName,
+                bankName
+            });
         } catch (error) {
             console.error(error);
         } finally {
@@ -74,12 +124,23 @@ export default function ExpenseForm({ onSuccess }: ExpenseFormProps) {
             setScanning(true);
             try {
                 const data = await parseScreenshot(e.target.files[0]);
+
                 if (data.amount) setAmount(data.amount);
-                if (data.date) setDate(data.date);
-                if (data.recipient) setDescription(`Paid to ${data.recipient}`);
+                if (data.date) setDate(data.date.split('T')[0]); // Use just the date part for input type=date
+                if (data.description) setDescription(data.description);
+
+                // Auto-switch Payment Mode
+                if (data.paymentMode) setPaymentMode(data.paymentMode);
+
+                // Fill UPI Fields
+                if (data.transactionId) setTransactionId(data.transactionId);
+                if (data.googleTransactionId) setGoogleTransactionId(data.googleTransactionId);
+                if (data.senderName) setSenderName(data.senderName);
+                if (data.receiverName) setReceiverName(data.receiverName);
+                if (data.bankName) setBankName(data.bankName);
+
             } catch (err) {
                 console.error(err);
-                alert('Failed to read screenshot');
             } finally {
                 setScanning(false);
             }
@@ -87,124 +148,175 @@ export default function ExpenseForm({ onSuccess }: ExpenseFormProps) {
     };
 
     return (
-        <Paper sx={{ p: 3, borderRadius: 3 }}>
-            <Typography variant="h6" gutterBottom fontWeight="bold">
-                {tabIndex === 0 ? 'Add New Expense' : 'Record Income'}
-            </Typography>
+        <Box component="form" onSubmit={handleSubmit} sx={{ display: 'flex', flexDirection: 'column', gap: 2, p: 1 }}>
 
-            <Tabs value={tabIndex} onChange={handleTabChange} sx={{ mb: 3 }} variant="fullWidth">
-                <Tab label="Expense" />
-                <Tab label="Income" />
-            </Tabs>
-
-            <Box component="form" onSubmit={handleSubmit} sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-
-                {/* Screenshot Upload Placeholder (Task 8) */}
-                {tabIndex === 0 && (
-                    <Button
-                        variant="outlined"
-                        component="label"
-                        startIcon={scanning ? <CircularProgress size={20} /> : <CloudUploadIcon />}
-                        fullWidth
-                        sx={{ mb: 1, borderStyle: 'dashed', py: 2 }}
-                        disabled={scanning}
-                    >
-                        {scanning ? 'Scanning Screenshot...' : 'Auto-Fill from GPay Screenshot'}
-                        <input type="file" hidden accept="image/*" onChange={handleFileChange} />
-                    </Button>
-                )}
-
-                <FormControl fullWidth required>
-                    <InputLabel htmlFor="amount">Amount</InputLabel>
-                    <OutlinedInput
-                        id="amount"
-                        startAdornment={<InputAdornment position="start">₹</InputAdornment>}
-                        label="Amount"
-                        type="number"
-                        value={amount}
-                        onChange={(e) => setAmount(e.target.value)}
-                    />
-                </FormControl>
-
-                <Box sx={{ display: 'flex', gap: 2 }}>
-                    <FormControl fullWidth required>
-                        <InputLabel>Category</InputLabel>
-                        <Select
-                            value={category}
-                            label="Category"
-                            onChange={(e) => setCategory(e.target.value)}
-                        >
-                            {tabIndex === 0 ? [
-                                <MenuItem key="food" value="food">Groceries/Food</MenuItem>,
-                                <MenuItem key="milk" value="milk">Milk</MenuItem>,
-                                <MenuItem key="transport" value="transport">Transport</MenuItem>,
-                                <MenuItem key="utility" value="utility">Utilities (Web/Elec)</MenuItem>,
-                                <MenuItem key="family" value="family">Family Expenses</MenuItem>,
-                                <MenuItem key="other" value="other">Other</MenuItem>
-                            ] : [
-                                <MenuItem key="business" value="business">Business</MenuItem>,
-                                <MenuItem key="salary" value="salary">Salary</MenuItem>,
-                                <MenuItem key="rental" value="rental">Rental</MenuItem>,
-                                <MenuItem key="gift" value="gift">Gift/Bonus</MenuItem>
-                            ]}
-                        </Select>
-                    </FormControl>
-
-                    <FormControl fullWidth>
-                        <InputLabel>Payment Mode</InputLabel>
-                        <Select
-                            value={paymentMode}
-                            label="Payment Mode"
-                            onChange={(e) => setPaymentMode(e.target.value)}
-                        >
-                            <MenuItem value="online">Online / UPI</MenuItem>
-                            <MenuItem value="cash">Cash</MenuItem>
-                            <MenuItem value="card">Card</MenuItem>
-                        </Select>
-                    </FormControl>
-                </Box>
-
-                <TextField
-                    label="Date"
-                    type="date"
-                    fullWidth
-                    value={date}
-                    onChange={(e) => setDate(e.target.value)}
-                    InputLabelProps={{ shrink: true }}
-                    required
-                />
-
-                {tabIndex === 1 && (
-                    <FormControlLabel
-                        control={
-                            <Switch
-                                checked={isMothersMoney}
-                                onChange={(e) => setIsMothersMoney(e.target.checked)}
-                            />
-                        }
-                        label="Is this Mother's Money?"
-                    />
-                )}
-
-                <TextField
-                    label="Description / Notes"
-                    multiline
-                    rows={2}
-                    fullWidth
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                />
-
+            {!initialData && (
                 <Button
-                    type="submit"
-                    variant="contained"
-                    size="large"
-                    disabled={loading}
-                    sx={{ mt: 1 }}
+                    variant="outlined"
+                    component="label"
+                    startIcon={scanning ? <CircularProgress size={20} /> : <CloudUploadIcon />}
+                    fullWidth
+                    sx={{ mb: 1, borderStyle: 'dashed', py: 2 }}
+                    disabled={scanning}
                 >
-                    {loading ? 'Saving...' : 'Save Transaction'}
+                    {scanning ? 'Scanning...' : 'Auto-Fill from Screenshot'}
+                    <input type="file" hidden accept="image/*" onChange={handleFileChange} />
+                </Button>
+            )}
+
+            {/* Payment Mode Selector at Top */}
+            <ToggleButtonGroup
+                color="primary"
+                value={paymentMode}
+                exclusive
+                onChange={(e, val) => val && setPaymentMode(val)}
+                fullWidth
+                size="small"
+            >
+                <ToggleButton value="Cash">Cash</ToggleButton>
+                <ToggleButton value="UPI">UPI</ToggleButton>
+                <ToggleButton value="Card">Card</ToggleButton>
+                <ToggleButton value="NetBanking">NetBnkg</ToggleButton>
+            </ToggleButtonGroup>
+
+            <FormControl fullWidth required>
+                <InputLabel htmlFor="amount">Amount</InputLabel>
+                <OutlinedInput
+                    id="amount"
+                    startAdornment={<InputAdornment position="start">₹</InputAdornment>}
+                    label="Amount"
+                    type="number"
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                />
+            </FormControl>
+
+            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                <FormControl fullWidth required>
+                    <InputLabel>Category</InputLabel>
+                    <Select
+                        value={categoryName}
+                        label="Category"
+                        onChange={(e) => {
+                            setCategoryName(e.target.value);
+                            setSubcategory('');
+                        }}
+                    >
+                        {categories.map(cat => (
+                            <MenuItem key={cat.id} value={cat.name}>{cat.name}</MenuItem>
+                        ))}
+                    </Select>
+                </FormControl>
+                <Tooltip title="Manage Categories">
+                    <IconButton onClick={() => router.push('/dashboard/categories')}>
+                        <SettingsIcon />
+                    </IconButton>
+                </Tooltip>
+            </Box>
+
+            {selectedCategory && selectedCategory.subcategories.length > 0 && (
+                <FormControl fullWidth>
+                    <InputLabel>Subcategory</InputLabel>
+                    <Select
+                        value={subcategory}
+                        label="Subcategory"
+                        onChange={(e) => setSubcategory(e.target.value)}
+                    >
+                        {selectedCategory.subcategories.map(sub => (
+                            <MenuItem key={sub} value={sub}>{sub}</MenuItem>
+                        ))}
+                    </Select>
+                </FormControl>
+            )}
+
+            <FormControl fullWidth required>
+                <InputLabel>Source</InputLabel>
+                <Select
+                    value={source}
+                    label="Source"
+                    onChange={(e) => setSource(e.target.value as 'My Money' | 'Wife Money' | 'Mother Money')}
+                >
+                    <MenuItem value="My Money">My Money</MenuItem>
+                    <MenuItem value="Wife Money">Wife Money</MenuItem>
+                    <MenuItem value="Mother Money">Mother Money</MenuItem>
+                </Select>
+            </FormControl>
+
+            <TextField
+                label="Date"
+                type="date"
+                fullWidth
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                slotProps={{ inputLabel: { shrink: true } }}
+                required
+            />
+
+            <TextField
+                label="Description"
+                multiline
+                rows={2}
+                fullWidth
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+            />
+
+            {/* UPI Details Section */}
+            {paymentMode === 'UPI' && (
+                <Accordion defaultExpanded elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
+                    <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', width: '100%', justifyContent: 'space-between' }}>
+                            <Box fontSize="0.9rem" fontWeight="bold">Transaction Details</Box>
+                            {/* Visual indicator if valid data present? */}
+                        </Box>
+                    </AccordionSummary>
+                    <AccordionDetails sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                        <TextField
+                            label="Transaction ID (UPI)"
+                            size="small"
+                            fullWidth
+                            value={transactionId}
+                            onChange={(e) => setTransactionId(e.target.value)}
+                        />
+                        <TextField
+                            label="Google Transaction ID"
+                            size="small"
+                            fullWidth
+                            value={googleTransactionId}
+                            onChange={(e) => setGoogleTransactionId(e.target.value)}
+                        />
+                        <Divider>Participants</Divider>
+                        <TextField
+                            label="Sender (From)"
+                            size="small"
+                            fullWidth
+                            value={senderName}
+                            onChange={(e) => setSenderName(e.target.value)}
+                        />
+                        <TextField
+                            label="Receiver (To)"
+                            size="small"
+                            fullWidth
+                            value={receiverName}
+                            onChange={(e) => setReceiverName(e.target.value)}
+                        />
+                        <TextField
+                            label="Bank Name"
+                            size="small"
+                            fullWidth
+                            value={bankName}
+                            onChange={(e) => setBankName(e.target.value)}
+                        />
+                    </AccordionDetails>
+                </Accordion>
+            )}
+
+            <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end', mt: 2 }}>
+                <Button onClick={onCancel} disabled={loading}>Cancel</Button>
+                <Button variant="contained" type="submit" disabled={loading}>
+                    {initialData ? 'Update' : 'Save'}
                 </Button>
             </Box>
-        </Paper>
+        </Box>
     );
 }

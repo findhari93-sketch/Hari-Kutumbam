@@ -1,4 +1,5 @@
 'use client';
+import { useState, useEffect } from 'react';
 import React from 'react';
 import {
     List,
@@ -7,68 +8,99 @@ import {
     Avatar,
     ListItemText,
     Typography,
-    Chip
+    Chip,
+    Skeleton
 } from '@mui/material';
 import ReceiptIcon from '@mui/icons-material/Receipt';
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
 import { pink, green } from '@mui/material/colors';
-
-// Mock data until we connect to Firestore
-const MOCK_TRANSACTIONS = [
-    { id: '1', type: 'expense', category: 'Groceries', amount: 1200, date: '2023-12-19', description: 'Weekly veggies' },
-    { id: '2', type: 'income', category: 'Salary', amount: 50000, date: '2023-12-01', description: 'Dec Salary', isMothersMoney: false },
-    { id: '3', type: 'expense', category: 'Milk', amount: 45, date: '2023-12-18', description: 'Vendor A' },
-    { id: '4', type: 'income', category: 'Rental', amount: 15000, date: '2023-12-05', isMothersMoney: true },
-];
+import { expenseService } from '@/services/expenseService';
+import { Expense } from '@/types';
+import { Timestamp } from 'firebase/firestore';
 
 export default function RecentTransactionsList() {
+    const [transactions, setTransactions] = useState<Expense[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchRecent = async () => {
+            try {
+                const all = await expenseService.getAllExpenses();
+                // Get top 5 recent
+                setTransactions(all.slice(0, 5));
+            } catch (err) {
+                console.error("Failed to fetch recent transactions", err);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchRecent();
+    }, []);
+
+    if (loading) {
+        return (
+            <List sx={{ width: '100%', bgcolor: 'background.paper', borderRadius: 3 }}>
+                {[1, 2, 3].map(i => <Skeleton key={i} height={60} />)}
+            </List>
+        );
+    }
+
+    if (transactions.length === 0) {
+        return <Typography variant="body2" sx={{ p: 2, textAlign: 'center' }}>No recent activity</Typography>;
+    }
+
     return (
         <List sx={{ width: '100%', bgcolor: 'background.paper', borderRadius: 3 }}>
-            {MOCK_TRANSACTIONS.map((transaction) => {
-                const isExpense = transaction.type === 'expense';
-                return (
-                    <React.Fragment key={transaction.id}>
-                        <ListItem alignItems="flex-start">
-                            <ListItemAvatar>
-                                <Avatar sx={{ bgcolor: isExpense ? pink[100] : green[100], color: isExpense ? pink[700] : green[700] }}>
-                                    {isExpense ? <ReceiptIcon /> : <AttachMoneyIcon />}
-                                </Avatar>
-                            </ListItemAvatar>
-                            <ListItemText
-                                primary={
-                                    <React.Fragment>
-                                        <Typography component="span" variant="subtitle1" fontWeight="medium">
-                                            {transaction.category}
-                                        </Typography>
-                                        {transaction.isMothersMoney && (
-                                            <Chip label="Mom's" size="small" color="secondary" sx={{ ml: 1, height: 20 }} />
-                                        )}
-                                    </React.Fragment>
+            {transactions.map((transaction) => {
+                // For now assuming all in 'expenses' collection are expenses. 
+                const isExpense = true;
+                const isMothersMoney = transaction.source === 'Mother Money';
 
-                                }
-                                secondary={
-                                    <React.Fragment>
-                                        <Typography
-                                            component="span"
-                                            variant="body2"
-                                            color="text.primary"
-                                        >
-                                            {transaction.date}
-                                        </Typography>
-                                        {" — " + (transaction.description || 'No description')}
-                                    </React.Fragment>
-                                }
-                            />
-                            <Typography
-                                variant="body1"
-                                fontWeight="bold"
-                                color={isExpense ? 'error.main' : 'success.main'}
-                                sx={{ alignSelf: 'center' }}
-                            >
-                                {isExpense ? '-' : '+'}₹{transaction.amount}
-                            </Typography>
-                        </ListItem>
-                    </React.Fragment>
+                const dateStr = transaction.date instanceof Timestamp
+                    ? transaction.date.toDate().toLocaleDateString()
+                    : new Date(transaction.date).toLocaleDateString();
+
+                return (
+                    <ListItem key={transaction.id} alignItems="flex-start">
+                        <ListItemAvatar>
+                            <Avatar sx={{ bgcolor: pink[100], color: pink[700] }}>
+                                <ReceiptIcon />
+                            </Avatar>
+                        </ListItemAvatar>
+                        <ListItemText
+                            primary={
+                                <React.Fragment>
+                                    <Typography component="span" variant="subtitle1" fontWeight="medium">
+                                        {transaction.category}
+                                    </Typography>
+                                    {isMothersMoney && (
+                                        <Chip label="Mom's" size="small" color="secondary" sx={{ ml: 1, height: 20 }} />
+                                    )}
+                                </React.Fragment>
+
+                            }
+                            secondary={
+                                <React.Fragment>
+                                    <Typography
+                                        component="span"
+                                        variant="body2"
+                                        color="text.primary"
+                                    >
+                                        {dateStr}
+                                    </Typography>
+                                    {" — " + (transaction.description || 'No description')}
+                                </React.Fragment>
+                            }
+                        />
+                        <Typography
+                            variant="body1"
+                            fontWeight="bold"
+                            color={'error.main'}
+                            sx={{ alignSelf: 'center' }}
+                        >
+                            -₹{transaction.amount}
+                        </Typography>
+                    </ListItem>
                 );
             })}
         </List>

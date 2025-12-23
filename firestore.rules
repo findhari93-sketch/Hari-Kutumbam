@@ -3,35 +3,86 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper: Check if user is authenticated
+    // --- Helpers ---
     function isAuthenticated() {
       return request.auth != null;
     }
 
-    // Helper: Check if user owns the document (preserved for transactions/bank accounts)
     function isOwner(userId) {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
-    // Transactions (Still private per user for now)
+    // Fetch user role from 'users' collection
+    function getUserRole() {
+       let userPath = /databases/$(database)/documents/users/$(request.auth.uid);
+       return exists(userPath) ? get(userPath).data.role : 'guest';
+    }
+
+    function isFamilyOrAdmin() {
+      let role = getUserRole();
+      return role == 'admin' || role == 'family';
+    }
+
+    // --- Users Collection ---
+    match /users/{userId} {
+      // Users can read their own profile. Admin/Family can read all (for directory).
+      allow read: if isAuthenticated() && (request.auth.uid == userId || isFamilyOrAdmin());
+      // Only creation by self allowed (on signup)
+      allow create: if isAuthenticated() && request.auth.uid == userId;
+      // Update allowed by owner (e.g. photoURL). ideally restrict role updates.
+      allow update: if isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // --- Categories Collection ---
+    match /categories/{categoryId} {
+      // Users can read/write their own categories. 
+      // Family/Admin can read all (if we want shared categories in future).
+      // For now, strict ownership or Family/Admin access.
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isFamilyOrAdmin());
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isAuthenticated() && (resource.data.userId == request.auth.uid || isFamilyOrAdmin());
+    }
+
+    // --- Expenses Collection ---
+    match /expenses/{expenseId} {
+      // Family/Admin: Full Access
+      // Office: Can see 'Business', 'Transport' categories OR their own entries
+      // Note: 'resource' is the document being read.
+      allow read: if isAuthenticated() && (
+          isFamilyOrAdmin() || 
+          (resource.data.userId == request.auth.uid) ||
+          (resource.data.category == 'Business' || resource.data.category == 'Transport')
+      );
+      
+      // Create: user must set userId to self
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+
+      // Update/Delete: Family/Admin can edit all. Office can only edit their own.
+      allow update, delete: if isAuthenticated() && (
+          isFamilyOrAdmin() || 
+          resource.data.userId == request.auth.uid
+      );
+    }
+
+    // --- Legacy / Other Collections ---
+    
+    // Transactions (Personal)
     match /transactions/{document} {
       allow read, update, delete: if isOwner(resource.data.userId);
       allow create: if isOwner(request.resource.data.userId);
     }
     
-    // Bank Accounts (Still private)
+    // Bank Accounts (Personal)
     match /bankAccounts/{document} {
       allow read, update, delete: if isOwner(resource.data.userId);
       allow create: if isOwner(request.resource.data.userId);
     }
 
     // Milk Logs - SHARED FAMILY ACCESS
-    // Any authenticated user can read all logs.
-    // Any authenticated user can create/update logs.
     match /milk_logs/{document} {
       allow read: if isAuthenticated();
       allow create, update: if isAuthenticated();
-      allow delete: if isAuthenticated(); // Or restrict to owner if needed
+      allow delete: if isAuthenticated(); 
     }
 
     // Milk Payments - SHARED FAMILY ACCESS

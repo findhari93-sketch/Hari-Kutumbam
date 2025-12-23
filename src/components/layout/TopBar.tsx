@@ -5,6 +5,7 @@ import MenuIcon from '@mui/icons-material/Menu';
 import AccountCircle from '@mui/icons-material/AccountCircle';
 import { auth } from '@/services/firebase';
 import { useRouter } from 'next/navigation';
+import { useRBAC } from '@/hooks/useRBAC';
 
 interface TopBarProps {
     onMenuClick: () => void;
@@ -12,6 +13,7 @@ interface TopBarProps {
 
 export default function TopBar({ onMenuClick }: TopBarProps) {
     const router = useRouter();
+    const { profile, user } = useRBAC();
     const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
 
     const handleMenu = (event: React.MouseEvent<HTMLElement>) => {
@@ -20,6 +22,11 @@ export default function TopBar({ onMenuClick }: TopBarProps) {
 
     const handleClose = () => {
         setAnchorEl(null);
+    };
+
+    const handleProfile = () => {
+        handleClose();
+        router.push('/dashboard/settings');
     };
 
     const handleLogout = async () => {
@@ -61,7 +68,11 @@ export default function TopBar({ onMenuClick }: TopBarProps) {
                         onClick={handleMenu}
                         color="inherit"
                     >
-                        <AccountCircle />
+                        <Avatar
+                            src={profile?.photoURL || user?.photoURL || ''}
+                            alt={profile?.displayName || 'User'}
+                            sx={{ width: 32, height: 32 }}
+                        />
                     </IconButton>
                     <Menu
                         id="menu-appbar"
@@ -78,7 +89,7 @@ export default function TopBar({ onMenuClick }: TopBarProps) {
                         open={Boolean(anchorEl)}
                         onClose={handleClose}
                     >
-                        <MenuItem onClick={handleClose}>Profile</MenuItem>
+                        <MenuItem onClick={handleProfile}>Profile</MenuItem>
                         <MenuItem onClick={handleLogout}>Logout</MenuItem>
                     </Menu>
                 </Box>

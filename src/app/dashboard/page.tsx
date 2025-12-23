@@ -6,6 +6,8 @@ import ReceiptIcon from '@mui/icons-material/Receipt';
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 
+import { useRouter } from 'next/navigation';
+
 const data = [
     { name: 'Jan', Income: 65000, Expense: 42000 },
     { name: 'Feb', Income: 65000, Expense: 38000 },
@@ -16,6 +18,7 @@ const data = [
 ];
 
 export default function DashboardPage() {
+    const router = useRouter();
     return (
         <Box>
             <Typography variant="h4" sx={{ mb: 4, fontWeight: 'bold' }}>
@@ -97,7 +100,13 @@ export default function DashboardPage() {
                     <Paper sx={{ p: 3, borderRadius: 4, height: '100%' }}>
                         <Typography variant="h6" gutterBottom fontWeight="bold">Quick Actions</Typography>
                         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
-                            <Button variant="outlined" startIcon={<ReceiptIcon />} fullWidth size="large">
+                            <Button
+                                variant="outlined"
+                                startIcon={<ReceiptIcon />}
+                                fullWidth
+                                size="large"
+                                onClick={() => router.push('/dashboard/expenses')}
+                            >
                                 Add Expense
                             </Button>
                             <Button variant="outlined" color="secondary" fullWidth size="large">
