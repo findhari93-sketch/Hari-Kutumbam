@@ -55,7 +55,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import HistoryIcon from '@mui/icons-material/History';
 import GridViewIcon from '@mui/icons-material/GridView';
 import ViewListIcon from '@mui/icons-material/ViewList';
-import CardGiftcardIcon from '@mui/icons-material/CardGiftcard'; // For Gift Icon
+import CardGiftcardIcon from '@mui/icons-material/CardGiftcard';
 import CloseIcon from '@mui/icons-material/Close';
 
 import ImageUploadWithCrop from '@/components/common/ImageUploadWithCrop';
@@ -75,12 +75,10 @@ export default function GoldVaultPage() {
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
-    // --- State ---
     const [userId, setUserId] = useState<string | null>(null);
     const [rateData, setRateData] = useState<GoldRate | null>(null);
     const [historicalData, setHistoricalData] = useState<HistoricalRate[]>([]);
 
-    // Inventory State
     const [items, setItems] = useState<GoldItem[]>([]);
     const [loadingItems, setLoadingItems] = useState(true);
 
@@ -91,15 +89,12 @@ export default function GoldVaultPage() {
 
     const [searchTerm, setSearchTerm] = useState('');
 
-    // Dialogs
     const [openDialog, setOpenDialog] = useState(false);
     const [isEditMode, setIsEditMode] = useState(false);
     const [editingItem, setEditingItem] = useState<GoldItem | null>(null);
 
-    // Preview Image State
     const [previewImage, setPreviewImage] = useState<string | null>(null);
 
-    // Form State
     const [newItem, setNewItem] = useState<{
         name: string;
         weight: string;
@@ -126,7 +121,6 @@ export default function GoldVaultPage() {
     const [selectedAuditItem, setSelectedAuditItem] = useState<GoldItem | null>(null);
     const [saving, setSaving] = useState(false);
 
-    // Auth & Initial Load
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (user) => {
             if (user) {
@@ -137,7 +131,6 @@ export default function GoldVaultPage() {
         return () => unsubscribe();
     }, []);
 
-    // Fetch Rates
     useEffect(() => {
         const getRate = async () => {
             const data = await fetchGoldRate(selectedCity);
@@ -165,15 +158,19 @@ export default function GoldVaultPage() {
 
     const currentRate = rateData ? (selectedKarat === '24k' ? rateData.price24k : rateData.price22k) : 0;
 
-    // --- Actions ---
-
     const handleSaveItem = async () => {
         if (!userId) return;
+
+        // Force re-upload for blob images (Fix for "Not Synced" issue)
+        if (newItem.image?.startsWith('blob:') && !newItem.imageFile) {
+            alert("This item has an unsynced local image. Please click 'Change' on the image preview and upload the photo again so it syncs to the cloud for your family.");
+            return;
+        }
+
         setSaving(true);
         try {
             let imageUrl = newItem.image;
 
-            // Upload image if a new file exists
             if (newItem.imageFile) {
                 const path = `gold_images/${userId}/${Date.now()}_${newItem.imageFile.name}`;
                 imageUrl = await uploadImage(newItem.imageFile, path);
@@ -184,7 +181,7 @@ export default function GoldVaultPage() {
                 weight: Number(newItem.weight),
                 owner: newItem.owner,
                 location: newItem.location,
-                image: imageUrl, // Save the actual download URL
+                image: imageUrl,
                 gifterName: newItem.isGift ? newItem.gifterName : undefined,
                 gifterContact: newItem.isGift ? newItem.gifterContact : undefined
             };
@@ -251,7 +248,6 @@ export default function GoldVaultPage() {
         setEditingItem(null);
     };
 
-    // Stats
     const totalWeight = items.reduce((sum, item) => sum + item.weight, 0);
     const totalValue = totalWeight * currentRate;
 
@@ -313,7 +309,6 @@ export default function GoldVaultPage() {
             {/* Tab 0: Vault Inventory */}
             {activeTab === 0 && (
                 <Box>
-                    {/* Stats */}
                     <Card sx={{ bgcolor: 'secondary.main', color: 'white', mb: 3 }}>
                         <CardContent>
                             <Typography variant="h3" fontWeight="bold">₹ {totalValue.toLocaleString()}</Typography>
@@ -321,7 +316,6 @@ export default function GoldVaultPage() {
                         </CardContent>
                     </Card>
 
-                    {/* Controls */}
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
                         <TextField
                             size="small"
@@ -352,8 +346,16 @@ export default function GoldVaultPage() {
                                 <Card key={item.id}>
                                     <Box sx={{ position: 'relative', aspectRatio: '4/3', cursor: 'pointer' }} onClick={() => item.image && setPreviewImage(item.image)}>
                                         <img src={item.image || 'https://placehold.co/150'} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+
+                                        {/* Local Image Warning */}
+                                        {item.image?.startsWith('blob:') && (
+                                            <Box sx={{ position: 'absolute', top: 0, left: 0, right: 0, bgcolor: 'error.main', color: 'white', fontSize: 11, textAlign: 'center', py: 0.5, zIndex: 1, fontWeight: 'bold' }}>
+                                                Not Synced • Re-upload Photo
+                                            </Box>
+                                        )}
+
                                         <Box
-                                            onClick={(e) => e.stopPropagation()} // Prevent preview when clicking menu
+                                            onClick={(e) => e.stopPropagation()}
                                             sx={{ position: 'absolute', top: 8, right: 8, bgcolor: 'rgba(255,255,255,0.9)', borderRadius: '50%' }}
                                         >
                                             <ItemMenu item={item} onEdit={openEdit} onDelete={handleDelete} onAudit={openAuditLog} />
@@ -407,11 +409,16 @@ export default function GoldVaultPage() {
                                     {filteredItems.map(item => (
                                         <TableRow key={item.id}>
                                             <TableCell>
-                                                <img
-                                                    src={item.image || 'https://placehold.co/150'}
-                                                    style={{ width: 40, height: 40, borderRadius: 4, objectFit: 'cover', cursor: 'pointer' }}
-                                                    onClick={() => item.image && setPreviewImage(item.image)}
-                                                />
+                                                <Box sx={{ position: 'relative', width: 40, height: 40 }}>
+                                                    <img
+                                                        src={item.image || 'https://placehold.co/150'}
+                                                        style={{ width: '100%', height: '100%', borderRadius: 4, objectFit: 'cover', cursor: 'pointer' }}
+                                                        onClick={() => item.image && setPreviewImage(item.image)}
+                                                    />
+                                                    {item.image?.startsWith('blob:') && (
+                                                        <Box sx={{ position: 'absolute', top: -4, right: -4, bgcolor: 'error.main', width: 10, height: 10, borderRadius: '50%', border: '1px solid white' }} title="Not Synced - Re-upload" />
+                                                    )}
+                                                </Box>
                                             </TableCell>
                                             <TableCell>
                                                 {item.name}
@@ -433,7 +440,6 @@ export default function GoldVaultPage() {
                 </Box>
             )}
 
-            {/* Tab 1: Analytics Tab */}
             {activeTab === 1 && (
                 <GoldAnalytics
                     history={historicalData}
@@ -444,21 +450,19 @@ export default function GoldVaultPage() {
                 />
             )}
 
-            {/* Tab 2: Gift Planner */}
             {activeTab === 2 && (
                 <GiftPlanner />
             )}
 
-            {/* Full Screen Image Preview Modal */}
             <Modal
                 open={!!previewImage}
                 onClose={() => setPreviewImage(null)}
-                sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', p: 2 }}
+                sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', p: 2, backdropFilter: 'blur(3px)' }}
             >
                 <Box sx={{ position: 'relative', maxWidth: '100%', maxHeight: '100%', outline: 'none' }}>
                     <IconButton
                         onClick={() => setPreviewImage(null)}
-                        sx={{ position: 'absolute', top: -40, right: 0, color: 'white' }}
+                        sx={{ position: 'absolute', top: 10, right: 10, color: 'white', bgcolor: 'rgba(0,0,0,0.5)', '&:hover': { bgcolor: 'rgba(0,0,0,0.7)' } }}
                     >
                         <CloseIcon fontSize="large" />
                     </IconButton>
@@ -471,7 +475,6 @@ export default function GoldVaultPage() {
                 </Box>
             </Modal>
 
-            {/* Edit/Add Dialog */}
             <Dialog open={openDialog} onClose={() => setOpenDialog(false)} fullWidth maxWidth="sm">
                 <DialogTitle>{isEditMode ? 'Edit Item' : 'Add New Item'}</DialogTitle>
                 <DialogContent sx={{ pt: 2 }}>
@@ -480,11 +483,23 @@ export default function GoldVaultPage() {
                             <ImageUploadWithCrop onImageUpload={(file) => setNewItem({ ...newItem, image: URL.createObjectURL(file), imageFile: file })} aspectRatio={4 / 3} />
                         ) : (
                             <Box sx={{ position: 'relative', height: 200 }}>
-                                <img src={newItem.image} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 8 }} />
-                                <Button size="small" variant="contained" color="error"
+                                <img src={newItem.image} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 8, opacity: newItem.image.startsWith('blob:') && !newItem.imageFile ? 0.5 : 1 }} />
+                                {newItem.image.startsWith('blob:') && !newItem.imageFile && (
+                                    <Box sx={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', bgcolor: 'error.main', color: 'white', px: 2, py: 1, borderRadius: 1 }}>
+                                        Not Synced
+                                    </Box>
+                                )}
+                                <Button size="small" variant="contained" color={newItem.image.startsWith('blob:') ? "error" : "primary"}
                                     sx={{ position: 'absolute', top: 8, right: 8 }}
-                                    onClick={() => setNewItem({ ...newItem, image: '', imageFile: null })}>Change</Button>
+                                    onClick={() => setNewItem({ ...newItem, image: '', imageFile: null })}>
+                                    {newItem.image.startsWith('blob:') ? "Re-upload Needed" : "Change"}
+                                </Button>
                             </Box>
+                        )}
+                        {newItem.image?.startsWith('blob:') && (
+                            <Typography color="error.main" variant="caption" sx={{ display: 'block', mt: 1, fontWeight: 'bold' }}>
+                                ⚠ Image is local only. Please click Re-upload to sync.
+                            </Typography>
                         )}
                     </Box>
                     <TextField label="Name" fullWidth value={newItem.name} onChange={e => setNewItem({ ...newItem, name: e.target.value })} sx={{ mb: 2 }} />
@@ -502,7 +517,6 @@ export default function GoldVaultPage() {
                         </Select>
                     </FormControl>
 
-                    {/* Gift Section */}
                     <FormControlLabel
                         control={
                             <Switch
@@ -544,7 +558,6 @@ export default function GoldVaultPage() {
                 </DialogActions>
             </Dialog>
 
-            {/* Audit Dialog */}
             <Dialog open={openAudit} onClose={() => setOpenAudit(false)} maxWidth="sm" fullWidth>
                 <DialogTitle>Audit History: {selectedAuditItem?.name}</DialogTitle>
                 <DialogContent>

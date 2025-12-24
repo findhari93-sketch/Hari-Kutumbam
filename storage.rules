@@ -5,8 +5,15 @@ service firebase.storage {
       allow read: if request.auth != null;
       allow write: if request.auth != null && request.auth.uid == userId;
     }
-    match /gold_images/{userId}/{allPaths=**} {
+    
+    // Simplification: Allow reading any gold image if authenticated
+    // This avoids issues with nested paths or userId mismatches during reads.
+    match /gold_images/{allPaths=**} {
       allow read: if request.auth != null;
+    }
+    
+    // Write access still restricted to owner's folder
+    match /gold_images/{userId}/{allPaths=**} {
       allow write: if request.auth != null && request.auth.uid == userId;
     }
   }
