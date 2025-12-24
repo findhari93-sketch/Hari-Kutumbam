@@ -40,9 +40,10 @@ export const giftPlanningService = {
         }
     },
 
-    getPlans: async (userId: string) => {
+    // Shared Family Access
+    getPlans: async (userId?: string) => {
         try {
-            const q = query(collection(db, COLLECTION), where('userId', '==', userId));
+            const q = query(collection(db, COLLECTION));
             const snapshot = await getDocs(q);
             return snapshot.docs.map(d => ({ id: d.id, ...d.data() } as GiftPlan));
         } catch (error) {

@@ -46,18 +46,21 @@ const extractDataFromText = (text: string): ExtractedTransactionData => {
     //    Phone numbers/IDs usually don't have commas.
 
     // Attempt 1: Strict/Loose Currency Pattern
-    const currencyRegex = /(?:₹|Rs\.?|INR|[\u20B9\u20A8])\s*([\d,]+(?:\.\d{2})?)/i;
+    // Matches: ₹3,800 or ₹ 3,800 or 3800.00 (if preceded by symbol)
+    // Updated to match dot optionally for whole numbers
+    const currencyRegex = /(?:₹|Rs\.?|INR|[\u20B9\u20A8])\s*([\d,]+(?:\.\d{0,2})?)/i;
     let amountMatch = text.match(currencyRegex);
 
     if (amountMatch) {
         data.amount = amountMatch[1].replace(/,/g, '');
     } else {
         // Attempt 2: Numbers with commas (e.g. "3,800")
-        // This avoids matching IDs "534..." or Phones "984..." which are usually blocks of digits.
-        const commaNumberRegex = /(?:\s|^)([\d]{1,3}(?:,[\d]{2,3})+)(?:\.\d{2})?(?:\s|$)/;
+        // Relaxed to catch "3,800" even if surrounded by other text, but implies it looks like an amount.
+        // We look for 1-3 digits, comma, 3 digits.
+        const commaNumberRegex = /(^|\s)([\d]{1,3}(?:,[\d]{3})+(?:\.\d{2})?)(\s|$)/;
         amountMatch = text.match(commaNumberRegex);
         if (amountMatch) {
-            data.amount = amountMatch[1].replace(/,/g, '');
+            data.amount = amountMatch[2].replace(/,/g, '');
         }
     }
 
