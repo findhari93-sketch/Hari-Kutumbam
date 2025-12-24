@@ -91,5 +91,17 @@ service cloud.firestore {
       allow create, update: if isAuthenticated();
       allow delete: if isAuthenticated();
     }
+
+    // Gold Daily Rates - SHARED ACCESS
+    match /gold_daily_rates/{document} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAuthenticated();
+    }
+
+    // Gold Items - PERSONAL ACCESS
+    match /gold_items/{document} {
+      allow read, update, delete: if isAuthenticated() && (resource.data.userId == request.auth.uid || isFamilyOrAdmin());
+      allow create: if isAuthenticated();
+    }
   }
 }

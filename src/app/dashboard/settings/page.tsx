@@ -1,5 +1,8 @@
 'use client';
 import React, { useState, useEffect } from 'react';
+import Cropper from 'react-easy-crop';
+import getCroppedImg from '@/utils/cropImage';
+import imageCompression from 'browser-image-compression';
 import {
     Box,
     Typography,
@@ -13,7 +16,12 @@ import {
     CardContent,
     Avatar,
     Chip,
-    Alert
+    Alert,
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogActions,
+    Slider
 } from '@mui/material';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import { useRBAC } from '@/hooks/useRBAC';
@@ -35,6 +43,13 @@ export default function SettingsPage() {
     const [avatarUrl, setAvatarUrl] = useState(profile?.photoURL);
     const [msg, setMsg] = useState('');
 
+    // Crop state
+    const [openCrop, setOpenCrop] = useState(false);
+    const [selectedImg, setSelectedImg] = useState<string | null>(null);
+    const [crop, setCrop] = useState({ x: 0, y: 0 });
+    const [zoom, setZoom] = useState(1);
+    const [croppedAreaPixels, setCroppedAreaPixels] = useState<any>(null);
+
     useEffect(() => {
         if (profile?.photoURL) {
             setAvatarUrl(profile.photoURL);
@@ -45,12 +60,54 @@ export default function SettingsPage() {
         setValue(newValue);
     };
 
-    const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (!e.target.files || !e.target.files[0] || !user) return;
+    const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (!e.target.files || !e.target.files[0]) return;
         const file = e.target.files[0];
-        setUploading(true);
+
+        // Convert to base64 for preview/cropping
+        const reader = new FileReader();
+        reader.addEventListener('load', () => {
+            setSelectedImg(reader.result?.toString() || null);
+            setOpenCrop(true);
+        });
+        reader.readAsDataURL(file);
+
+        // Reset input value so same file can be selected again
+        e.target.value = '';
+    };
+
+    const onCropComplete = (croppedArea: any, croppedAreaPixels: any) => {
+        setCroppedAreaPixels(croppedAreaPixels);
+    };
+
+    const saveCroppedImage = async () => {
+        if (!selectedImg || !croppedAreaPixels || !user) return;
+
         try {
-            const url = await userService.uploadAvatar(user.uid, file);
+            setUploading(true);
+            // Dialog remains open while uploading
+
+            // 1. Get cropped blob
+            const croppedBlob = await getCroppedImg(selectedImg, croppedAreaPixels);
+            if (!croppedBlob) throw new Error('Failed to crop image');
+
+            // 2. Compress
+            const compressionOptions = {
+                maxSizeMB: 0.2, // 200KB
+                maxWidthOrHeight: 500,
+                useWebWorker: true,
+                fileType: 'image/jpeg'
+            };
+
+            // browser-image-compression takes File or Blob. 
+            // We need to convert Blob to File for it to be happy with name/type usually, 
+            // but it accepts Blob too. Let's cast to File for better compatibility if needed.
+            const croppedFile = new File([croppedBlob], "avatar.jpg", { type: "image/jpeg" });
+
+            const compressedFile = await imageCompression(croppedFile, compressionOptions);
+
+            // 3. Upload
+            const url = await userService.uploadAvatar(user.uid, compressedFile);
             setAvatarUrl(url);
             setMsg('Profile picture updated successfully');
         } catch (error) {
@@ -58,8 +115,9 @@ export default function SettingsPage() {
             setMsg('Failed to upload picture');
         } finally {
             setUploading(false);
+            setOpenCrop(false); setSelectedImg(null);
         }
-    };
+    }
 
     return (
         <Box>
@@ -100,7 +158,7 @@ export default function SettingsPage() {
                                 type="file"
                                 hidden
                                 accept="image/*"
-                                onChange={handleAvatarUpload}
+                                onChange={handleFileSelect}
                             />
                         </Button>
                         {msg && <Alert severity="info" sx={{ mt: 2 }}>{msg}</Alert>}
@@ -116,6 +174,40 @@ export default function SettingsPage() {
                     </CardContent>
                 </Card>
             </TabPanel>
+
+            {/* Crop Dialog */}
+            <Dialog open={openCrop} onClose={() => { if (!uploading) { setOpenCrop(false); setSelectedImg(null); } }} maxWidth="sm" fullWidth>
+                <DialogTitle>Adjust Image</DialogTitle>
+                <DialogContent>
+                    <Box sx={{ position: 'relative', width: '100%', height: 300, bgcolor: '#333' }}>
+                        {selectedImg && (
+                            <Cropper
+                                image={selectedImg}
+                                crop={crop}
+                                zoom={zoom}
+                                aspect={1} // Square aspect ratio for avatar
+                                onCropChange={setCrop}
+                                onCropComplete={onCropComplete}
+                                onZoomChange={setZoom}
+                            />
+                        )}
+                    </Box>
+                    <Box sx={{ p: 2 }}>
+                        <Typography gutterBottom>Zoom</Typography>
+                        <Slider
+                            value={zoom}
+                            min={1}
+                            max={3}
+                            step={0.1}
+                            onChange={(e, zoom) => setZoom(Number(zoom))}
+                        />
+                    </Box>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => { setOpenCrop(false); setSelectedImg(null); }} disabled={uploading}>Cancel</Button>
+                    <Button onClick={saveCroppedImage} variant="contained" disabled={uploading}>{uploading ? 'Uploading...' : 'Upload Picture'}</Button>
+                </DialogActions>
+            </Dialog>
         </Box>
     );
 }

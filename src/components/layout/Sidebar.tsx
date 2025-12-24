@@ -21,6 +21,7 @@ import HandshakeIcon from '@mui/icons-material/Handshake'; // Loans
 import ApartmentIcon from '@mui/icons-material/Apartment'; // Real Estate
 import SettingsIcon from '@mui/icons-material/Settings';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
+import AccountTreeIcon from '@mui/icons-material/AccountTree';
 import { usePathname, useRouter } from 'next/navigation';
 
 const drawerWidth = 240;
@@ -28,6 +29,7 @@ const drawerWidth = 240;
 const menuItems = [
     { text: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' },
     { text: 'Expenses', icon: <ReceiptLongIcon />, path: '/dashboard/expenses' },
+    { text: 'Categories', icon: <AccountTreeIcon />, path: '/dashboard/categories' },
     { text: 'Milk Tracker', icon: <LocalDrinkIcon />, path: '/dashboard/milk' },
     { text: 'Gold Vault', icon: <DiamondIcon />, path: '/dashboard/gold' },
     { text: 'My Banks', icon: <AccountBalanceIcon />, path: '/dashboard/banks' },
@@ -53,9 +55,10 @@ export default function Sidebar({ mobileOpen, onClose }: SidebarProps) {
 
     const drawerContent = (
         <div>
-            <Toolbar sx={{ justifyContent: 'center' }}>
+            <Toolbar sx={{ justifyContent: 'center', alignItems: 'center', gap: 1 }}>
+                <Box component="img" src="/logo.png" alt="Logo" sx={{ height: 32, width: 32, borderRadius: '50%' }} />
                 <Typography variant="h6" noWrap component="div" sx={{ fontWeight: 'bold', color: 'primary.main' }}>
-                    Expensify
+                    Hari Kutumbam
                 </Typography>
             </Toolbar>
             <Divider />

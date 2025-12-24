@@ -1,11 +1,17 @@
 import type { Metadata, Viewport } from 'next';
 import ThemeRegistry from '@/theme/ThemeRegistry';
+import LocalizationRegistry from '@/theme/LocalizationRegistry';
 import { AuthProvider } from '@/context/AuthContext';
 
 export const metadata: Metadata = {
-  title: 'Expense Tracker Pro',
-  description: 'Comprehensive Personal Finance Management',
+  title: 'Hari Kutumbam',
+  description: 'Manage your family finances efficiently',
   manifest: '/manifest.json', // Prepared for PWA
+  icons: {
+    icon: '/logo.png',
+    shortcut: '/logo.png',
+    apple: '/logo.png',
+  }
 };
 
 export const viewport: Viewport = {
@@ -24,7 +30,9 @@ export default function RootLayout({
     <html lang="en">
       <body>
         <ThemeRegistry>
-          <AuthProvider>{children}</AuthProvider>
+          <LocalizationRegistry>
+            <AuthProvider>{children}</AuthProvider>
+          </LocalizationRegistry>
         </ThemeRegistry>
       </body>
     </html>

@@ -1,49 +1,39 @@
 'use client';
 import { useState, useEffect } from 'react';
-import {
-    Box,
-    Typography,
-    List,
-    ListItem,
-    ListItemText,
-    IconButton,
-    Fab,
-    Dialog,
-    DialogTitle,
-    DialogContent,
-    TextField,
-    Button,
-    Chip,
-    Stack,
-    Divider,
-    Paper,
-    FormControl,
-    InputLabel,
-    Select,
-    MenuItem
-} from '@mui/material';
-import AddIcon from '@mui/icons-material/Add';
-import EditIcon from '@mui/icons-material/Edit';
-import DeleteIcon from '@mui/icons-material/Delete';
+import { Box, Typography, Tab, Tabs, Paper } from '@mui/material';
+import { useRBAC } from '@/hooks/useRBAC';
 import { categoryService } from '@/services/categoryService';
-import { useAuth } from '@/context/AuthContext';
 import { Category } from '@/types';
+import CategoryImport from '@/components/categories/CategoryImport';
+import CategoryFlowView from '@/components/categories/CategoryFlowView';
+import CategoryListView from '@/components/categories/CategoryListView';
+
+interface TabPanelProps {
+    children?: React.ReactNode;
+    index: number;
+    value: number;
+}
+
+function TabPanel(props: TabPanelProps) {
+    const { children, value, index, ...other } = props;
+    return (
+        <div role="tabpanel" hidden={value !== index} {...other}>
+            {value === index && <Box sx={{ p: 3 }}>{children}</Box>}
+        </div>
+    );
+}
 
 export default function CategoriesPage() {
-    const { user } = useAuth();
+    const { user } = useRBAC();
+    const [value, setValue] = useState(0);
     const [categories, setCategories] = useState<Category[]>([]);
-    const [open, setOpen] = useState(false);
-    const [editingCategory, setEditingCategory] = useState<Category | null>(null);
-
-    // Form State
-    const [name, setName] = useState('');
-    const [subcats, setSubcats] = useState<string[]>([]);
-    const [newSubcat, setNewSubcat] = useState('');
-    const [type, setType] = useState<'expense' | 'income'>('expense');
+    const [refreshTrigger, setRefreshTrigger] = useState(0);
 
     useEffect(() => {
-        if (user) loadCategories();
-    }, [user]);
+        if (user) {
+            loadCategories();
+        }
+    }, [user, refreshTrigger]);
 
     const loadCategories = async () => {
         if (!user) return;
@@ -55,150 +45,53 @@ export default function CategoriesPage() {
         }
     };
 
-    const handleOpen = (category?: Category) => {
-        if (category) {
-            setEditingCategory(category);
-            setName(category.name);
-            setSubcats(category.subcategories || []);
-            setType(category.type);
-        } else {
-            setEditingCategory(null);
-            setName('');
-            setSubcats([]);
-            setType('expense');
-        }
-        setOpen(true);
+    const handleChange = (event: React.SyntheticEvent, newValue: number) => {
+        setValue(newValue);
     };
 
-    const handleSave = async () => {
-        if (!user) return;
-        try {
-            const payload: Omit<Category, 'id' | 'audit'> = {
-                name,
-                subcategories: subcats,
-                type,
-                userId: user.uid,
-                // icon: ...
-            };
-
-            if (editingCategory?.id) {
-                await categoryService.updateCategory(editingCategory.id, payload, user);
-            } else {
-                await categoryService.addCategory(payload, user);
-            }
-            setOpen(false);
-            loadCategories();
-        } catch (error) {
-            console.error(error);
-        }
-    };
-
-    const handleDelete = async (id: string) => {
-        if (!user || !confirm('Delete this category?')) return;
-        await categoryService.deleteCategory(id, user);
-        loadCategories();
-    };
-
-    const addSubcat = () => {
-        if (newSubcat.trim()) {
-            setSubcats([...subcats, newSubcat.trim()]);
-            setNewSubcat('');
-        }
-    };
-
-    const removeSubcat = (index: number) => {
-        setSubcats(subcats.filter((_, i) => i !== index));
+    const handleRefresh = () => {
+        setRefreshTrigger(prev => prev + 1);
     };
 
     return (
-        <Box sx={{ p: 2, pb: 10 }}>
-            <Typography variant="h4" fontWeight="bold" gutterBottom>Manage Categories</Typography>
+        <Box>
+            <Typography variant="h4" gutterBottom fontWeight="bold">
+                Category Management
+            </Typography>
 
-            <List>
-                {categories.map((cat) => (
-                    <Paper key={cat.id} sx={{ mb: 2, borderRadius: 2, overflow: 'hidden' }}>
-                        <ListItem
-                            secondaryAction={
-                                <Box>
-                                    <IconButton onClick={() => handleOpen(cat)}><EditIcon /></IconButton>
-                                    <IconButton color="error" onClick={() => handleDelete(cat.id!)}><DeleteIcon /></IconButton>
-                                </Box>
-                            }
-                            sx={{ bgcolor: 'action.hover' }}
-                        >
-                            <ListItemText
-                                primary={<Typography variant="h6">{cat.name}</Typography>}
-                                secondary={cat.type.toUpperCase()}
-                            />
-                        </ListItem>
-                        <Box sx={{ p: 2, pt: 0 }}>
-                            <Stack direction="row" flexWrap="wrap" gap={1}>
-                                {cat.subcategories.map((sub, i) => (
-                                    <Chip key={i} label={sub} size="small" />
-                                ))}
-                                {cat.subcategories.length === 0 && <Typography variant="caption" color="text.secondary">No subcategories</Typography>}
-                            </Stack>
-                        </Box>
-                    </Paper>
-                ))}
-            </List>
+            <Paper sx={{ width: '100%', mb: 2 }}>
+                <Tabs value={value} onChange={handleChange} indicatorColor="primary" textColor="primary">
+                    <Tab label="List View" />
+                    <Tab label="Visual View" />
+                    <Tab label="Bulk Import" />
+                </Tabs>
+            </Paper>
 
-            <Fab
-                color="primary"
-                sx={{ position: 'fixed', bottom: 80, right: 16 }}
-                onClick={() => handleOpen()}
-            >
-                <AddIcon />
-            </Fab>
+            <TabPanel value={value} index={0}>
+                {user && (
+                    <CategoryListView
+                        categories={categories}
+                        userId={user.uid}
+                        onUpdate={handleRefresh}
+                    />
+                )}
+            </TabPanel>
 
-            <Dialog open={open} onClose={() => setOpen(false)} fullWidth maxWidth="sm">
-                <DialogTitle>{editingCategory ? 'Edit Category' : 'New Category'}</DialogTitle>
-                <DialogContent>
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
-                        <FormControl fullWidth>
-                            <InputLabel>Type</InputLabel>
-                            <Select value={type} label="Type" onChange={(e) => setType(e.target.value as 'expense' | 'income')}>
-                                <MenuItem value="expense">Expense</MenuItem>
-                                <MenuItem value="income">Income</MenuItem>
-                            </Select>
-                        </FormControl>
-                        <TextField
-                            label="Category Name"
-                            fullWidth
-                            value={name}
-                            onChange={(e) => setName(e.target.value)}
-                        />
+            <TabPanel value={value} index={1}>
+                <CategoryFlowView categories={categories} />
+            </TabPanel>
 
-                        <Divider textAlign="left">Subcategories</Divider>
-
-                        <Box sx={{ display: 'flex', gap: 1 }}>
-                            <TextField
-                                label="Add Subcategory"
-                                fullWidth
-                                size="small"
-                                value={newSubcat}
-                                onChange={(e) => setNewSubcat(e.target.value)}
-                                onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addSubcat())}
-                            />
-                            <Button variant="contained" onClick={addSubcat}>Add</Button>
-                        </Box>
-
-                        <Stack direction="row" flexWrap="wrap" gap={1}>
-                            {subcats.map((sub, i) => (
-                                <Chip
-                                    key={i}
-                                    label={sub}
-                                    onDelete={() => removeSubcat(i)}
-                                />
-                            ))}
-                        </Stack>
-                    </Box>
-                    <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
-                        <Button onClick={() => setOpen(false)}>Cancel</Button>
-                        <Button variant="contained" onClick={handleSave}>Save</Button>
-                    </Box>
-                </DialogContent>
-            </Dialog>
+            <TabPanel value={value} index={2}>
+                {user && (
+                    <CategoryImport
+                        onImportComplete={() => {
+                            handleRefresh();
+                            setValue(0); // Switch to list view to see results
+                        }}
+                        userId={user.uid}
+                    />
+                )}
+            </TabPanel>
         </Box>
     );
 }

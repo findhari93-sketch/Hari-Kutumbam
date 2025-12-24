@@ -6,6 +6,7 @@ import {
     query,
     where,
     getDocs,
+    writeBatch,
     Timestamp
 } from 'firebase/firestore';
 import { db } from './firebase';
@@ -75,6 +76,37 @@ export const categoryService = {
     },
 
     // Soft Delete a Category
+    // Bulk Create Categories
+    batchCreateCategories: async (categories: Category[], userId: string) => {
+        try {
+            const batch = writeBatch(db);
+            const audit: AuditMetadata = {
+                createdBy: userId,
+                createdAt: Timestamp.now(),
+                updatedBy: userId,
+                updatedAt: Timestamp.now()
+            };
+
+            categories.forEach(cat => {
+                const docRef = doc(collection(db, COLLECTION_NAME));
+                // Ensure we don't write undefined id or audit if it was passed partially
+                const { id, ...rest } = cat;
+                batch.set(docRef, {
+                    ...rest,
+                    userId,
+                    audit,
+                    isDeleted: false
+                });
+            });
+
+            await batch.commit();
+        } catch (error) {
+            console.error('Error batch creating categories:', error);
+            throw error;
+        }
+    },
+
+    // Delete Category
     deleteCategory: async (id: string, user: any) => {
         try {
             const docRef = doc(db, COLLECTION_NAME, id);

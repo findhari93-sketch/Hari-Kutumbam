@@ -8,6 +8,7 @@ import {
     MilkPayment
 } from '@/services/firestore';
 import { useAuth } from '@/context/AuthContext';
+import { expenseService } from '@/services/expenseService';
 
 export const useMilkData = () => {
     const { user } = useAuth();
@@ -85,12 +86,33 @@ export const useMilkData = () => {
     const addPayment = async (amount: number, note?: string, date?: string) => {
         if (!user) return;
         const paymentDate = date || new Date().toISOString().split('T')[0];
+
+        // 1. Record in Milk Tracker
         await addPaymentService(user.uid, {
             date: paymentDate,
             amount,
             note,
             recordedBy: user.displayName || user.email?.split('@')[0] || 'Unknown'
         });
+
+        // 2. Auto-create Expense
+        try {
+            await expenseService.addExpense({
+                amount,
+                category: 'Milk',
+                subcategory: 'Settlement',
+                date: new Date(paymentDate),
+                description: `Milk Settlement${note ? ` - ${note}` : ''}`,
+                source: 'My Money',
+                paymentMode: 'Cash',
+                senderName: user.displayName || '',
+                receiverName: 'Milk Vendor'
+            }, user);
+        } catch (error) {
+            console.error("Failed to auto-create expense for milk settlement", error);
+            // We don't block the UI if this fails, but logging it is good.
+        }
+
         await fetchData();
     };
 

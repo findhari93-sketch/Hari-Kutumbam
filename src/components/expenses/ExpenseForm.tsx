@@ -17,7 +17,8 @@ import {
     Accordion,
     AccordionSummary,
     AccordionDetails,
-    Divider
+    Divider,
+    Autocomplete
 } from '@mui/material';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import SettingsIcon from '@mui/icons-material/Settings';
@@ -90,7 +91,7 @@ export default function ExpenseForm({ initialData, onSave, onCancel }: ExpenseFo
         }
     }, [initialData]);
 
-    const selectedCategory = categories.find(c => c.name === categoryName);
+
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -192,42 +193,48 @@ export default function ExpenseForm({ initialData, onSave, onCancel }: ExpenseFo
             </FormControl>
 
             <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                <FormControl fullWidth required>
-                    <InputLabel>Category</InputLabel>
-                    <Select
-                        value={categoryName}
-                        label="Category"
-                        onChange={(e) => {
-                            setCategoryName(e.target.value);
+                <Autocomplete
+                    value={
+                        // Current value object
+                        categories.flatMap(c => [
+                            { label: c.name, category: c.name, subcategory: '' },
+                            ...c.subcategories.map(sub => ({ label: `${c.name} > ${sub}`, category: c.name, subcategory: sub }))
+                        ]).find(o => o.category === categoryName && o.subcategory === subcategory) || null
+                    }
+                    onChange={(event, newValue) => {
+                        if (newValue) {
+                            setCategoryName(newValue.category);
+                            setSubcategory(newValue.subcategory);
+                        } else {
+                            // User cleared input
+                            setCategoryName('');
                             setSubcategory('');
-                        }}
-                    >
-                        {categories.map(cat => (
-                            <MenuItem key={cat.id} value={cat.name}>{cat.name}</MenuItem>
-                        ))}
-                    </Select>
-                </FormControl>
+                        }
+                    }}
+                    options={categories.flatMap(c => [
+                        // Option for just the category
+                        { label: c.name, category: c.name, subcategory: '' },
+                        // Options for each subcategory
+                        ...c.subcategories.map(sub => ({
+                            label: `${c.name} > ${sub}`,
+                            category: c.name,
+                            subcategory: sub
+                        }))
+                    ])}
+                    getOptionLabel={(option) => option.label}
+                    isOptionEqualToValue={(option, value) =>
+                        option.category === value.category && option.subcategory === value.subcategory
+                    }
+                    renderInput={(params) => <TextField {...params} label="Category / Subcategory" required={!categoryName} />}
+                    fullWidth
+                    disableClearable={false}
+                />
                 <Tooltip title="Manage Categories">
                     <IconButton onClick={() => router.push('/dashboard/categories')}>
                         <SettingsIcon />
                     </IconButton>
                 </Tooltip>
             </Box>
-
-            {selectedCategory && selectedCategory.subcategories.length > 0 && (
-                <FormControl fullWidth>
-                    <InputLabel>Subcategory</InputLabel>
-                    <Select
-                        value={subcategory}
-                        label="Subcategory"
-                        onChange={(e) => setSubcategory(e.target.value)}
-                    >
-                        {selectedCategory.subcategories.map(sub => (
-                            <MenuItem key={sub} value={sub}>{sub}</MenuItem>
-                        ))}
-                    </Select>
-                </FormControl>
-            )}
 
             <FormControl fullWidth required>
                 <InputLabel>Source</InputLabel>
