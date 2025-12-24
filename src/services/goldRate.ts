@@ -78,6 +78,10 @@ export const fetchGoldRate = async (city: string = 'India'): Promise<GoldRate | 
             headers: { 'x-access-token': API_KEY, 'Content-Type': 'application/json' }
         });
 
+        if (response.status === 403) {
+            console.warn("[GoldRate] API Key Limit/Invalid. Switching to Mock Data.");
+            throw new Error("GOLD_API_403");
+        }
         if (!response.ok) throw new Error(`API Error: ${response.status}`);
 
         const data = await response.json();
@@ -111,12 +115,14 @@ export const fetchGoldRate = async (city: string = 'India'): Promise<GoldRate | 
 
         return rateData;
 
-    } catch (error) {
-        console.error('Error fetching gold rate:', error);
-        // Fallback or Mock
+    } catch (error: any) {
+        if (error.message !== 'GOLD_API_403') {
+            console.error('Error fetching gold rate:', error);
+        }
+        // Fallback or Mock (Updated estimates 2025)
         return {
-            price24k: 6000 * RETAIL_MARKUP,
-            price22k: 5500 * RETAIL_MARKUP,
+            price24k: 7850,
+            price22k: 7200,
             currency: 'INR',
             timestamp: Date.now(),
             city: city || 'Unknown'
@@ -165,7 +171,7 @@ export const fetchHistoricalRates = async (city: string = 'India', days: number 
     if (missingDates.length === 0) return finalRates.sort((a, b) => a.date.localeCompare(b.date));
 
     // 2. Fallback Generation for Missing Dates
-    let anchorPrice = 6200;
+    let anchorPrice = 7600; // Updated anchor
     const liveRate = await fetchGoldRate(city);
     if (liveRate) anchorPrice = liveRate.price24k;
 
