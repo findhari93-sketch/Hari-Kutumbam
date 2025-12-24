@@ -8,8 +8,6 @@ import {
     getDocs,
     query,
     where,
-    Timestamp,
-    getDoc
 } from 'firebase/firestore';
 
 export interface AuditRecord {

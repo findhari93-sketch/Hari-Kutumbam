@@ -226,7 +226,7 @@ export default function GoldVaultPage() {
                 </Box>
             </Box>
 
-            <Tabs value={activeTab} onChange={(e, v) => setActiveTab(v)} sx={{ mb: 3 }}>
+            <Tabs value={activeTab} onChange={(_, v) => setActiveTab(v)} sx={{ mb: 3 }}>
                 <Tab label="My Vault" />
                 <Tab label="Market Analytics" />
             </Tabs>
@@ -254,7 +254,7 @@ export default function GoldVaultPage() {
                             <ToggleButtonGroup
                                 value={viewMode}
                                 exclusive
-                                onChange={(e, v) => v && setViewMode(v)}
+                                onChange={(_, v) => v && setViewMode(v)}
                                 size="small"
                             >
                                 <ToggleButton value="card"><GridViewIcon /></ToggleButton>

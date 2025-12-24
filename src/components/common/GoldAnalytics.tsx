@@ -134,11 +134,11 @@ export default function GoldAnalytics({ history, loading, currentPrice, city, on
     };
 
     return (
-        <Box animation="fade-in">
+        <Box>
             {/* Controls Toolbar */}
             <Paper elevation={0} variant="outlined" sx={{ p: 2, mb: 3, borderRadius: 3, bgcolor: 'background.default' }}>
                 <Grid container spacing={2} alignItems="center">
-                    <Grid item xs={12} sm={4}>
+                    <Grid size={{ xs: 12, sm: 4 }}>
                         <FormControl fullWidth size="small">
                             <InputLabel>Location</InputLabel>
                             <Select
@@ -151,11 +151,11 @@ export default function GoldAnalytics({ history, loading, currentPrice, city, on
                             </Select>
                         </FormControl>
                     </Grid>
-                    <Grid item xs={6} sm={4}>
+                    <Grid size={{ xs: 6, sm: 4 }}>
                         <ToggleButtonGroup
                             value={karat}
                             exclusive
-                            onChange={(e, v) => v && setKarat(v)}
+                            onChange={(_, v) => v && setKarat(v)}
                             fullWidth
                             size="small"
                         >
@@ -163,11 +163,11 @@ export default function GoldAnalytics({ history, loading, currentPrice, city, on
                             <ToggleButton value="24k">24K</ToggleButton>
                         </ToggleButtonGroup>
                     </Grid>
-                    <Grid item xs={6} sm={4}>
+                    <Grid size={{ xs: 6, sm: 4 }}>
                         <ToggleButtonGroup
                             value={timeRange}
                             exclusive
-                            onChange={(e, v) => v && setTimeRange(v)}
+                            onChange={(_, v) => v && setTimeRange(v)}
                             fullWidth
                             size="small"
                         >
@@ -216,7 +216,7 @@ export default function GoldAnalytics({ history, loading, currentPrice, city, on
 
             {/* High/Low Stats Grid */}
             <Grid container spacing={2} sx={{ mb: 3 }}>
-                <Grid item xs={6} sm={4}>
+                <Grid size={{ xs: 6, sm: 4 }}>
                     <Card variant="outlined" sx={{ borderRadius: 2 }}>
                         <CardContent>
                             <Typography variant="caption" color="text.secondary">Lowest (Best Buy)</Typography>
@@ -226,7 +226,7 @@ export default function GoldAnalytics({ history, loading, currentPrice, city, on
                         </CardContent>
                     </Card>
                 </Grid>
-                <Grid item xs={6} sm={4}>
+                <Grid size={{ xs: 6, sm: 4 }}>
                     <Card variant="outlined" sx={{ borderRadius: 2 }}>
                         <CardContent>
                             <Typography variant="caption" color="text.secondary">Highest Price</Typography>
@@ -236,7 +236,7 @@ export default function GoldAnalytics({ history, loading, currentPrice, city, on
                         </CardContent>
                     </Card>
                 </Grid>
-                <Grid item xs={12} sm={4}>
+                <Grid size={{ xs: 12, sm: 4 }}>
                     <Card variant="outlined" sx={{ borderRadius: 2 }}>
                         <CardContent>
                             <Typography variant="caption" color="text.secondary">Average Price</Typography>

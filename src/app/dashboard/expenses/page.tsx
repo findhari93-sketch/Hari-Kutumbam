@@ -8,9 +8,13 @@ import {
     DialogContent,
     Stack,
     Fab,
-    Paper
+    Paper,
+    TextField,
+    InputAdornment,
+    Container
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
+import SearchIcon from '@mui/icons-material/Search';
 import ExpenseTable from '@/components/expenses/ExpenseTable';
 import ExpenseForm from '@/components/expenses/ExpenseForm';
 import DateRangeFilter from '@/components/expenses/DateRangeFilter';
@@ -25,6 +29,9 @@ export default function ExpensesPage() {
     const { user } = useAuth();
     const [expenses, setExpenses] = useState<Expense[]>([]);
     const [filteredExpenses, setFilteredExpenses] = useState<Expense[]>([]);
+
+    // Search State
+    const [searchTerm, setSearchTerm] = useState('');
 
     // Date Range State
     const [dateRange, setDateRange] = useState<Range>({
@@ -42,11 +49,11 @@ export default function ExpensesPage() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [user]);
 
-    // Re-filter when date range or expenses change
+    // Re-filter when date range, search, or expenses change
     useEffect(() => {
         applyFilter();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [expenses, dateRange]);
+    }, [expenses, dateRange, searchTerm]);
 
     const fetchExpenses = async () => {
         if (!user) return;
@@ -67,19 +74,30 @@ export default function ExpensesPage() {
     };
 
     const applyFilter = () => {
-        if (!dateRange.startDate || !dateRange.endDate) {
-            setFilteredExpenses(expenses);
-            return;
+        let result = expenses;
+
+        // 1. Date Filter
+        if (dateRange.startDate && dateRange.endDate) {
+            result = result.filter(e => {
+                const d = e.date instanceof Timestamp ? e.date.toDate() : new Date(e.date);
+                return isWithinInterval(d, {
+                    start: dateRange.startDate!,
+                    end: dateRange.endDate!
+                });
+            });
         }
 
-        const filtered = expenses.filter(e => {
-            const d = e.date instanceof Timestamp ? e.date.toDate() : new Date(e.date);
-            return isWithinInterval(d, {
-                start: dateRange.startDate!,
-                end: dateRange.endDate!
-            });
-        });
-        setFilteredExpenses(filtered);
+        // 2. Search Filter
+        if (searchTerm.trim()) {
+            const lowerSearch = searchTerm.toLowerCase();
+            result = result.filter(e =>
+                e.category.toLowerCase().includes(lowerSearch) ||
+                e.description.toLowerCase().includes(lowerSearch) ||
+                e.amount.toString().includes(lowerSearch)
+            );
+        }
+
+        setFilteredExpenses(result);
     };
 
     const handleSave = async (data: Partial<Expense>) => {
@@ -131,34 +149,53 @@ export default function ExpensesPage() {
     const totalSpend = filteredExpenses.reduce((sum, e) => sum + e.amount, 0);
 
     return (
-        <Box sx={{ pb: 10 }}>
-            {/* Sticky Header */}
-            <Paper elevation={0} square sx={{
-                position: 'sticky',
-                top: 0,
-                zIndex: 10,
-                p: 2,
-                borderBottom: '1px solid',
-                borderColor: 'divider',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between'
-            }}>
-                <Box>
-                    <Typography variant="caption" color="text.secondary">Total Spend</Typography>
-                    <Typography variant="h5" fontWeight="bold">₹{totalSpend.toLocaleString()}</Typography>
-                </Box>
-                <DateRangeFilter dateRange={dateRange} onChange={setDateRange} />
-            </Paper>
+        <Box sx={{ pb: 10, bgcolor: 'background.default', minHeight: '100vh' }}>
+            {/* Header Area */}
+            <Box sx={{ bgcolor: 'background.paper', borderBottom: 1, borderColor: 'divider', position: 'sticky', top: 0, zIndex: 10 }}>
+                <Container maxWidth="lg" sx={{ px: { xs: 2, sm: 3 }, py: 2 }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+                        <Box>
+                            <Typography variant="h5" fontWeight="900" sx={{ letterSpacing: -0.5 }}>
+                                Expenses
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                                Total Spend: <Box component="span" sx={{ color: 'text.primary', fontWeight: 'bold' }}>₹{totalSpend.toLocaleString()}</Box>
+                            </Typography>
+                        </Box>
+                        <DateRangeFilter dateRange={dateRange} onChange={setDateRange} />
+                    </Box>
 
-            {/* Table View */}
-            <Box sx={{ p: 2 }}>
+                    {/* Search Bar */}
+                    <TextField
+                        fullWidth
+                        size="small"
+                        placeholder="Search expenses..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        InputProps={{
+                            startAdornment: (
+                                <InputAdornment position="start">
+                                    <SearchIcon fontSize="small" color="action" />
+                                </InputAdornment>
+                            ),
+                            sx: { borderRadius: 3, bgcolor: 'action.hover' }
+                        }}
+                        variant="outlined"
+                        sx={{
+                            '& .MuiOutlinedInput-notchedOutline': { border: 'none' },
+                        }}
+                    />
+                </Container>
+            </Box>
+
+            {/* Content Area */}
+            <Container maxWidth="lg" sx={{ px: { xs: 0, md: 3 }, py: 2 }}>
                 <ExpenseTable
                     expenses={filteredExpenses}
                     onEdit={handleEdit}
                     onDelete={handleDelete}
                 />
-            </Box>
+            </Container>
 
             {/* FAB */}
             <Fab
@@ -168,9 +205,7 @@ export default function ExpensesPage() {
                     position: 'fixed',
                     bottom: { xs: 80, md: 32 },
                     right: { xs: 16, md: 32 },
-                    opacity: 0.6,
-                    transition: 'opacity 0.3s',
-                    '&:hover': { opacity: 1 }
+                    boxShadow: 4
                 }}
                 onClick={handleCreate}
             >
@@ -179,13 +214,15 @@ export default function ExpensesPage() {
 
             {/* Add/Edit Modal */}
             <Dialog open={openModal} onClose={() => setOpenModal(false)} fullWidth maxWidth="sm">
-                <DialogTitle>{editingExpense ? 'Edit Expense' : 'New Expense'}</DialogTitle>
+                <DialogTitle sx={{ fontWeight: 'bold' }}>{editingExpense ? 'Edit Expense' : 'New Expense'}</DialogTitle>
                 <DialogContent>
-                    <ExpenseForm
-                        initialData={editingExpense}
-                        onSave={handleSave}
-                        onCancel={() => setOpenModal(false)}
-                    />
+                    <Box pt={1}>
+                        <ExpenseForm
+                            initialData={editingExpense}
+                            onSave={handleSave}
+                            onCancel={() => setOpenModal(false)}
+                        />
+                    </Box>
                 </DialogContent>
             </Dialog>
         </Box>

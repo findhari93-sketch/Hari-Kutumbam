@@ -170,7 +170,7 @@ export default function ExpenseForm({ initialData, onSave, onCancel }: ExpenseFo
                 color="primary"
                 value={paymentMode}
                 exclusive
-                onChange={(e, val) => val && setPaymentMode(val)}
+                onChange={(_, val) => val && setPaymentMode(val)}
                 fullWidth
                 size="small"
             >

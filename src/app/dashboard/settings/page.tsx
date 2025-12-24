@@ -199,7 +199,7 @@ export default function SettingsPage() {
                             min={1}
                             max={3}
                             step={0.1}
-                            onChange={(e, zoom) => setZoom(Number(zoom))}
+                            onChange={(_, zoom) => setZoom(Number(zoom))}
                         />
                     </Box>
                 </DialogContent>
