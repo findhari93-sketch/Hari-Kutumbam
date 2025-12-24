@@ -32,7 +32,10 @@ import {
     TableContainer,
     TableHead,
     TableRow,
-    Paper
+    Paper,
+    Switch,
+    FormControlLabel,
+    Collapse
 } from '@mui/material';
 import Timeline from '@mui/lab/Timeline';
 import TimelineItem from '@mui/lab/TimelineItem';
@@ -51,9 +54,11 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import HistoryIcon from '@mui/icons-material/History';
 import GridViewIcon from '@mui/icons-material/GridView';
 import ViewListIcon from '@mui/icons-material/ViewList';
+import CardGiftcardIcon from '@mui/icons-material/CardGiftcard'; // For Gift Icon
 
 import ImageUploadWithCrop from '@/components/common/ImageUploadWithCrop';
 import GoldAnalytics from '@/components/common/GoldAnalytics';
+import GiftPlanner from '@/components/gold/GiftPlanner';
 import { fetchGoldRate, fetchHistoricalRates, GoldRate, HistoricalRate } from '@/services/goldRate';
 import { addGoldItem, getGoldItems, updateGoldItem, deleteGoldItem, GoldItem } from '@/services/goldVault';
 import { auth } from '@/services/firebase';
@@ -87,7 +92,18 @@ export default function GoldVaultPage() {
     const [openDialog, setOpenDialog] = useState(false);
     const [isEditMode, setIsEditMode] = useState(false);
     const [editingItem, setEditingItem] = useState<GoldItem | null>(null);
-    const [newItem, setNewItem] = useState({ name: '', weight: '', owner: 'Self', location: 'Home Safe', image: '' });
+
+    // Form State
+    const [newItem, setNewItem] = useState({
+        name: '',
+        weight: '',
+        owner: 'Self',
+        location: 'Home Safe',
+        image: '',
+        isGift: false,
+        gifterName: '',
+        gifterContact: ''
+    });
 
     const [openAudit, setOpenAudit] = useState(false);
     const [selectedAuditItem, setSelectedAuditItem] = useState<GoldItem | null>(null);
@@ -136,22 +152,20 @@ export default function GoldVaultPage() {
     const handleSaveItem = async () => {
         if (!userId) return;
         try {
+            const itemData = {
+                name: newItem.name,
+                weight: Number(newItem.weight),
+                owner: newItem.owner,
+                location: newItem.location,
+                image: newItem.image,
+                gifterName: newItem.isGift ? newItem.gifterName : undefined,
+                gifterContact: newItem.isGift ? newItem.gifterContact : undefined
+            };
+
             if (isEditMode && editingItem) {
-                await updateGoldItem(editingItem.id!, {
-                    name: newItem.name,
-                    weight: Number(newItem.weight),
-                    owner: newItem.owner,
-                    location: newItem.location,
-                    image: newItem.image
-                }, editingItem);
+                await updateGoldItem(editingItem.id!, itemData, editingItem);
             } else {
-                await addGoldItem(userId, {
-                    name: newItem.name,
-                    weight: Number(newItem.weight),
-                    owner: newItem.owner,
-                    location: newItem.location,
-                    image: newItem.image
-                });
+                await addGoldItem(userId, itemData);
             }
             setOpenDialog(false);
             fetchItems(userId);
@@ -176,7 +190,10 @@ export default function GoldVaultPage() {
             weight: item.weight.toString(),
             owner: item.owner,
             location: item.location,
-            image: item.image
+            image: item.image,
+            isGift: !!item.gifterName,
+            gifterName: item.gifterName || '',
+            gifterContact: item.gifterContact || ''
         });
         setIsEditMode(true);
         setOpenDialog(true);
@@ -188,7 +205,16 @@ export default function GoldVaultPage() {
     };
 
     const resetForm = () => {
-        setNewItem({ name: '', weight: '', owner: 'Self', location: 'Home Safe', image: '' });
+        setNewItem({
+            name: '',
+            weight: '',
+            owner: 'Self',
+            location: 'Home Safe',
+            image: '',
+            isGift: false,
+            gifterName: '',
+            gifterContact: ''
+        });
         setIsEditMode(false);
         setEditingItem(null);
     };
@@ -204,7 +230,15 @@ export default function GoldVaultPage() {
 
     return (
         <Box sx={{ maxWidth: 1200, mx: 'auto', p: 2, pb: 10 }}>
-            <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'start', md: 'center' }, mb: 3, gap: 2 }}>
+            {/* Header - Fixed layout for mobile wrapping */}
+            <Box sx={{
+                display: 'flex',
+                flexDirection: { xs: 'column', md: 'row' },
+                justifyContent: 'space-between',
+                alignItems: { xs: 'start', md: 'center' },
+                mb: 3,
+                gap: 2
+            }}>
                 <Box>
                     <Typography variant="h4" fontWeight="bold" sx={{ background: 'linear-gradient(45deg, #FFD700 30%, #FF8C00 90%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
                         Gold Wealth Vault
@@ -213,24 +247,39 @@ export default function GoldVaultPage() {
                         Retail Price (incl. GST & Duty) • {selectedCity}
                     </Typography>
                 </Box>
-                {/* Rate Display ... (Same as before) */}
-                <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+                {/* Rate Display with Flex Wrap fix */}
+                <Box sx={{
+                    display: 'flex',
+                    gap: 2,
+                    alignItems: 'center',
+                    flexWrap: 'wrap' // Allows wrapping on small screens
+                }}>
                     <FormControl size="small" sx={{ minWidth: 120 }}>
                         <Select value={selectedCity} onChange={(e) => setSelectedCity(e.target.value)}>
                             {CITIES.map(c => <MenuItem key={c} value={c}>{c}</MenuItem>)}
                         </Select>
                     </FormControl>
-                    <Chip label="22K" color={selectedKarat === '22k' ? 'primary' : 'default'} onClick={() => setSelectedKarat('22k')} />
-                    <Chip label="24K" color={selectedKarat === '24k' ? 'primary' : 'default'} onClick={() => setSelectedKarat('24k')} />
+                    <Box sx={{ display: 'flex', gap: 1 }}>
+                        <Chip label="22K" color={selectedKarat === '22k' ? 'primary' : 'default'} onClick={() => setSelectedKarat('22k')} />
+                        <Chip label="24K" color={selectedKarat === '24k' ? 'primary' : 'default'} onClick={() => setSelectedKarat('24k')} />
+                    </Box>
                     <Typography variant="h6" fontWeight="bold" color="primary">₹{currentRate.toLocaleString()}</Typography>
                 </Box>
             </Box>
 
-            <Tabs value={activeTab} onChange={(_, v) => setActiveTab(v)} sx={{ mb: 3 }}>
+            <Tabs
+                value={activeTab}
+                onChange={(_, v) => setActiveTab(v)}
+                sx={{ mb: 3 }}
+                variant="scrollable"
+                scrollButtons="auto"
+            >
                 <Tab label="My Vault" />
                 <Tab label="Market Analytics" />
+                <Tab label="Gift Planner" />
             </Tabs>
 
+            {/* Tab 0: Vault Inventory */}
             {activeTab === 0 && (
                 <Box>
                     {/* Stats */}
@@ -275,11 +324,30 @@ export default function GoldVaultPage() {
                                         <Box sx={{ position: 'absolute', top: 8, right: 8, bgcolor: 'rgba(255,255,255,0.9)', borderRadius: '50%' }}>
                                             <ItemMenu item={item} onEdit={openEdit} onDelete={handleDelete} onAudit={openAuditLog} />
                                         </Box>
+                                        {/* Gift Indicator Badge */}
+                                        {item.gifterName && (
+                                            <Chip
+                                                icon={<CardGiftcardIcon fontSize="small" />}
+                                                label="Gift"
+                                                color="secondary"
+                                                size="small"
+                                                sx={{ position: 'absolute', bottom: 8, left: 8 }}
+                                            />
+                                        )}
                                     </Box>
                                     <CardContent>
-                                        <Typography variant="h6">{item.name}</Typography>
+                                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                            <Typography variant="h6" noWrap>{item.name}</Typography>
+                                        </Box>
                                         <Typography variant="body2">{item.location} • {item.owner}</Typography>
-                                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 1 }}>
+
+                                        {item.gifterName && (
+                                            <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
+                                                Gifted by: {item.gifterName}
+                                            </Typography>
+                                        )}
+
+                                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 1, alignItems: 'center' }}>
                                             <Chip label={`${item.weight}g`} size="small" />
                                             <Typography fontWeight="bold" color="success.main">₹{(item.weight * currentRate).toLocaleString()}</Typography>
                                         </Box>
@@ -307,7 +375,10 @@ export default function GoldVaultPage() {
                                             <TableCell>
                                                 <img src={item.image || 'https://placehold.co/150'} style={{ width: 40, height: 40, borderRadius: 4, objectFit: 'cover' }} />
                                             </TableCell>
-                                            <TableCell>{item.name}</TableCell>
+                                            <TableCell>
+                                                {item.name}
+                                                {item.gifterName && <Chip size="small" label="Gift" color="secondary" sx={{ ml: 1, height: 20 }} />}
+                                            </TableCell>
                                             <TableCell>{item.weight}g</TableCell>
                                             <TableCell>₹{(item.weight * currentRate).toLocaleString()}</TableCell>
                                             <TableCell>{item.location}</TableCell>
@@ -324,7 +395,7 @@ export default function GoldVaultPage() {
                 </Box>
             )}
 
-            {/* Analytics Tab */}
+            {/* Tab 1: Analytics Tab */}
             {activeTab === 1 && (
                 <GoldAnalytics
                     history={historicalData}
@@ -333,6 +404,11 @@ export default function GoldVaultPage() {
                     city={selectedCity}
                     onCityChange={setSelectedCity}
                 />
+            )}
+
+            {/* Tab 2: Gift Planner */}
+            {activeTab === 2 && (
+                <GiftPlanner />
             )}
 
             {/* Edit/Add Dialog */}
@@ -359,12 +435,46 @@ export default function GoldVaultPage() {
                             {OWNERS.map(o => <MenuItem key={o} value={o}>{o}</MenuItem>)}
                         </Select>
                     </FormControl>
-                    <FormControl fullWidth>
+                    <FormControl fullWidth sx={{ mb: 2 }}>
                         <InputLabel>Location</InputLabel>
                         <Select value={newItem.location} label="Location" onChange={e => setNewItem({ ...newItem, location: e.target.value })}>
                             {LOCATIONS.map(l => <MenuItem key={l} value={l}>{l}</MenuItem>)}
                         </Select>
                     </FormControl>
+
+                    {/* Gift Section */}
+                    <FormControlLabel
+                        control={
+                            <Switch
+                                checked={newItem.isGift}
+                                onChange={(e) => setNewItem({ ...newItem, isGift: e.target.checked })}
+                            />
+                        }
+                        label="Received as Gift?"
+                        sx={{ mb: 1 }}
+                    />
+
+                    <Collapse in={newItem.isGift}>
+                        <Box sx={{ p: 2, bgcolor: 'action.hover', borderRadius: 2, mb: 2 }}>
+                            <Typography variant="subtitle2" sx={{ mb: 2, color: 'text.secondary' }}>Gifter Details</Typography>
+                            <TextField
+                                label="Gifter Name"
+                                fullWidth
+                                size="small"
+                                value={newItem.gifterName}
+                                onChange={e => setNewItem({ ...newItem, gifterName: e.target.value })}
+                                sx={{ mb: 2 }}
+                            />
+                            <TextField
+                                label="Gifter Phone (Optional)"
+                                fullWidth
+                                size="small"
+                                value={newItem.gifterContact}
+                                onChange={e => setNewItem({ ...newItem, gifterContact: e.target.value })}
+                            />
+                        </Box>
+                    </Collapse>
+
                 </DialogContent>
                 <DialogActions>
                     <Button onClick={() => setOpenDialog(false)}>Cancel</Button>

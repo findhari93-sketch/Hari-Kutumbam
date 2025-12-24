@@ -25,6 +25,8 @@ export interface GoldItem {
     owner: string; // Mother, Wife, Self
     location: string; // Home Safe, Locker, etc
     image: string; // URL
+    gifterName?: string;
+    gifterContact?: string;
     auditLog: AuditRecord[];
     createdAt: number; // Timestamp
 }
@@ -71,6 +73,9 @@ export const updateGoldItem = async (itemId: string, updates: Partial<GoldItem>,
         }
         if (updates.name && updates.name !== oldItem.name) {
             changes.push(`Renamed from '${oldItem.name}' to '${updates.name}'`);
+        }
+        if (updates.gifterName && updates.gifterName !== oldItem.gifterName) {
+            changes.push(`Gifter updated to ${updates.gifterName}`);
         }
         if (changes.length === 0 && Object.keys(updates).length > 0) {
             changes.push('Item details updated');
