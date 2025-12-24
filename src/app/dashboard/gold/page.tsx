@@ -35,7 +35,8 @@ import {
     Paper,
     Switch,
     FormControlLabel,
-    Collapse
+    Collapse,
+    Modal
 } from '@mui/material';
 import Timeline from '@mui/lab/Timeline';
 import TimelineItem from '@mui/lab/TimelineItem';
@@ -55,6 +56,7 @@ import HistoryIcon from '@mui/icons-material/History';
 import GridViewIcon from '@mui/icons-material/GridView';
 import ViewListIcon from '@mui/icons-material/ViewList';
 import CardGiftcardIcon from '@mui/icons-material/CardGiftcard'; // For Gift Icon
+import CloseIcon from '@mui/icons-material/Close';
 
 import ImageUploadWithCrop from '@/components/common/ImageUploadWithCrop';
 import GoldAnalytics from '@/components/common/GoldAnalytics';
@@ -62,6 +64,7 @@ import GiftPlanner from '@/components/gold/GiftPlanner';
 import { fetchGoldRate, fetchHistoricalRates, GoldRate, HistoricalRate } from '@/services/goldRate';
 import { addGoldItem, getGoldItems, updateGoldItem, deleteGoldItem, GoldItem } from '@/services/goldVault';
 import { auth } from '@/services/firebase';
+import { uploadImage } from '@/services/storage';
 import { onAuthStateChanged } from 'firebase/auth';
 
 const OWNERS = ['Mother', 'Wife', 'Self'];
@@ -93,13 +96,27 @@ export default function GoldVaultPage() {
     const [isEditMode, setIsEditMode] = useState(false);
     const [editingItem, setEditingItem] = useState<GoldItem | null>(null);
 
+    // Preview Image State
+    const [previewImage, setPreviewImage] = useState<string | null>(null);
+
     // Form State
-    const [newItem, setNewItem] = useState({
+    const [newItem, setNewItem] = useState<{
+        name: string;
+        weight: string;
+        owner: string;
+        location: string;
+        image: string;
+        imageFile: File | null;
+        isGift: boolean;
+        gifterName: string;
+        gifterContact: string;
+    }>({
         name: '',
         weight: '',
         owner: 'Self',
         location: 'Home Safe',
         image: '',
+        imageFile: null,
         isGift: false,
         gifterName: '',
         gifterContact: ''
@@ -107,6 +124,7 @@ export default function GoldVaultPage() {
 
     const [openAudit, setOpenAudit] = useState(false);
     const [selectedAuditItem, setSelectedAuditItem] = useState<GoldItem | null>(null);
+    const [saving, setSaving] = useState(false);
 
     // Auth & Initial Load
     useEffect(() => {
@@ -151,13 +169,22 @@ export default function GoldVaultPage() {
 
     const handleSaveItem = async () => {
         if (!userId) return;
+        setSaving(true);
         try {
+            let imageUrl = newItem.image;
+
+            // Upload image if a new file exists
+            if (newItem.imageFile) {
+                const path = `gold_images/${userId}/${Date.now()}_${newItem.imageFile.name}`;
+                imageUrl = await uploadImage(newItem.imageFile, path);
+            }
+
             const itemData = {
                 name: newItem.name,
                 weight: Number(newItem.weight),
                 owner: newItem.owner,
                 location: newItem.location,
-                image: newItem.image,
+                image: imageUrl, // Save the actual download URL
                 gifterName: newItem.isGift ? newItem.gifterName : undefined,
                 gifterContact: newItem.isGift ? newItem.gifterContact : undefined
             };
@@ -171,7 +198,10 @@ export default function GoldVaultPage() {
             fetchItems(userId);
             resetForm();
         } catch (e) {
-            alert("Error saving item");
+            console.error(e);
+            alert("Error saving item. Please try again.");
+        } finally {
+            setSaving(false);
         }
     };
 
@@ -191,6 +221,7 @@ export default function GoldVaultPage() {
             owner: item.owner,
             location: item.location,
             image: item.image,
+            imageFile: null,
             isGift: !!item.gifterName,
             gifterName: item.gifterName || '',
             gifterContact: item.gifterContact || ''
@@ -211,6 +242,7 @@ export default function GoldVaultPage() {
             owner: 'Self',
             location: 'Home Safe',
             image: '',
+            imageFile: null,
             isGift: false,
             gifterName: '',
             gifterContact: ''
@@ -230,7 +262,7 @@ export default function GoldVaultPage() {
 
     return (
         <Box sx={{ maxWidth: 1200, mx: 'auto', p: 2, pb: 10 }}>
-            {/* Header - Fixed layout for mobile wrapping */}
+            {/* Header */}
             <Box sx={{
                 display: 'flex',
                 flexDirection: { xs: 'column', md: 'row' },
@@ -247,12 +279,11 @@ export default function GoldVaultPage() {
                         Retail Price (incl. GST & Duty) • {selectedCity}
                     </Typography>
                 </Box>
-                {/* Rate Display with Flex Wrap fix */}
                 <Box sx={{
                     display: 'flex',
                     gap: 2,
                     alignItems: 'center',
-                    flexWrap: 'wrap' // Allows wrapping on small screens
+                    flexWrap: 'wrap'
                 }}>
                     <FormControl size="small" sx={{ minWidth: 120 }}>
                         <Select value={selectedCity} onChange={(e) => setSelectedCity(e.target.value)}>
@@ -319,12 +350,15 @@ export default function GoldVaultPage() {
                         <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 3 }}>
                             {filteredItems.map(item => (
                                 <Card key={item.id}>
-                                    <Box sx={{ position: 'relative', aspectRatio: '4/3' }}>
+                                    <Box sx={{ position: 'relative', aspectRatio: '4/3', cursor: 'pointer' }} onClick={() => item.image && setPreviewImage(item.image)}>
                                         <img src={item.image || 'https://placehold.co/150'} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                        <Box sx={{ position: 'absolute', top: 8, right: 8, bgcolor: 'rgba(255,255,255,0.9)', borderRadius: '50%' }}>
+                                        <Box
+                                            onClick={(e) => e.stopPropagation()} // Prevent preview when clicking menu
+                                            sx={{ position: 'absolute', top: 8, right: 8, bgcolor: 'rgba(255,255,255,0.9)', borderRadius: '50%' }}
+                                        >
                                             <ItemMenu item={item} onEdit={openEdit} onDelete={handleDelete} onAudit={openAuditLog} />
                                         </Box>
-                                        {/* Gift Indicator Badge */}
+
                                         {item.gifterName && (
                                             <Chip
                                                 icon={<CardGiftcardIcon fontSize="small" />}
@@ -373,7 +407,11 @@ export default function GoldVaultPage() {
                                     {filteredItems.map(item => (
                                         <TableRow key={item.id}>
                                             <TableCell>
-                                                <img src={item.image || 'https://placehold.co/150'} style={{ width: 40, height: 40, borderRadius: 4, objectFit: 'cover' }} />
+                                                <img
+                                                    src={item.image || 'https://placehold.co/150'}
+                                                    style={{ width: 40, height: 40, borderRadius: 4, objectFit: 'cover', cursor: 'pointer' }}
+                                                    onClick={() => item.image && setPreviewImage(item.image)}
+                                                />
                                             </TableCell>
                                             <TableCell>
                                                 {item.name}
@@ -411,19 +449,41 @@ export default function GoldVaultPage() {
                 <GiftPlanner />
             )}
 
+            {/* Full Screen Image Preview Modal */}
+            <Modal
+                open={!!previewImage}
+                onClose={() => setPreviewImage(null)}
+                sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', p: 2 }}
+            >
+                <Box sx={{ position: 'relative', maxWidth: '100%', maxHeight: '100%', outline: 'none' }}>
+                    <IconButton
+                        onClick={() => setPreviewImage(null)}
+                        sx={{ position: 'absolute', top: -40, right: 0, color: 'white' }}
+                    >
+                        <CloseIcon fontSize="large" />
+                    </IconButton>
+                    {previewImage && (
+                        <img
+                            src={previewImage}
+                            style={{ maxWidth: '100vw', maxHeight: '90vh', borderRadius: 8, boxShadow: '0 4px 20px rgba(0,0,0,0.5)' }}
+                        />
+                    )}
+                </Box>
+            </Modal>
+
             {/* Edit/Add Dialog */}
             <Dialog open={openDialog} onClose={() => setOpenDialog(false)} fullWidth maxWidth="sm">
                 <DialogTitle>{isEditMode ? 'Edit Item' : 'Add New Item'}</DialogTitle>
                 <DialogContent sx={{ pt: 2 }}>
                     <Box sx={{ mb: 2 }}>
                         {!newItem.image ? (
-                            <ImageUploadWithCrop onImageUpload={(file) => setNewItem({ ...newItem, image: URL.createObjectURL(file) })} aspectRatio={4 / 3} />
+                            <ImageUploadWithCrop onImageUpload={(file) => setNewItem({ ...newItem, image: URL.createObjectURL(file), imageFile: file })} aspectRatio={4 / 3} />
                         ) : (
                             <Box sx={{ position: 'relative', height: 200 }}>
                                 <img src={newItem.image} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 8 }} />
                                 <Button size="small" variant="contained" color="error"
                                     sx={{ position: 'absolute', top: 8, right: 8 }}
-                                    onClick={() => setNewItem({ ...newItem, image: '' })}>Change</Button>
+                                    onClick={() => setNewItem({ ...newItem, image: '', imageFile: null })}>Change</Button>
                             </Box>
                         )}
                     </Box>
@@ -478,7 +538,9 @@ export default function GoldVaultPage() {
                 </DialogContent>
                 <DialogActions>
                     <Button onClick={() => setOpenDialog(false)}>Cancel</Button>
-                    <Button variant="contained" onClick={handleSaveItem}>Save</Button>
+                    <Button variant="contained" onClick={handleSaveItem} disabled={saving}>
+                        {saving ? <CircularProgress size={24} /> : 'Save'}
+                    </Button>
                 </DialogActions>
             </Dialog>
 
