@@ -12,6 +12,7 @@ import {
     IconButton
 } from '@mui/material';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
+import PhotoCamera from '@mui/icons-material/PhotoCamera';
 import ZoomInIcon from '@mui/icons-material/ZoomIn';
 import ZoomOutIcon from '@mui/icons-material/ZoomOut';
 import RotateLeftIcon from '@mui/icons-material/RotateLeft';
@@ -151,31 +152,60 @@ export default function ImageUploadWithCrop({ onImageUpload, aspectRatio = 4 / 3
 
     return (
         <Box>
-            <Button
-                variant="outlined"
-                component="label"
-                fullWidth
-                startIcon={<CloudUploadIcon />}
-                sx={{
-                    height: 100,
-                    borderStyle: 'dashed',
-                    borderWidth: 2,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: 1
-                }}
-            >
-                Upload Photo
-                <Typography variant="caption" color="text.secondary">
-                    Click to upload
-                </Typography>
-                <input
-                    type="file"
-                    hidden
-                    accept="image/*"
-                    onChange={onFileChange}
-                />
-            </Button>
+            <Box sx={{ display: 'flex', gap: 2 }}>
+                <Button
+                    variant="outlined"
+                    component="label"
+                    fullWidth
+                    startIcon={<CloudUploadIcon />}
+                    sx={{
+                        height: 100,
+                        borderStyle: 'dashed',
+                        borderWidth: 2,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 1
+                    }}
+                >
+                    Upload
+                    <Typography variant="caption" color="text.secondary">
+                        From Gallery
+                    </Typography>
+                    <input
+                        type="file"
+                        hidden
+                        accept="image/*"
+                        onChange={onFileChange}
+                    />
+                </Button>
+
+                <Button
+                    variant="outlined"
+                    component="label"
+                    fullWidth
+                    startIcon={<PhotoCamera />}
+                    sx={{
+                        height: 100,
+                        borderStyle: 'dashed',
+                        borderWidth: 2,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 1
+                    }}
+                >
+                    Camera
+                    <Typography variant="caption" color="text.secondary">
+                        Take Photo
+                    </Typography>
+                    <input
+                        type="file"
+                        hidden
+                        accept="image/*"
+                        capture="environment"
+                        onChange={onFileChange}
+                    />
+                </Button>
+            </Box>
 
             <Dialog
                 open={isCropModalOpen}
