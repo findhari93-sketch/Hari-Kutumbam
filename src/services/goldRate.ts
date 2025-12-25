@@ -53,7 +53,10 @@ export const fetchGoldRate = async (city: string = 'India'): Promise<GoldRate | 
             // ONLY re-fetch if: It is now Evening (>= 16:00) AND the stored data is from Morning/Early.
             const shouldRefetch = isEveningSession && lastSession === 'morning';
 
-            if (!shouldRefetch) {
+            // Auto-Purge Bad Mock Data: If data is 'mock' and suspiciously low (< 10000 for 24k), ignore it.
+            const isBadMock = data.source === 'mock' && data.price24k < 10000;
+
+            if (!shouldRefetch && !isBadMock) {
                 // console.log(`[GoldRate] Serving from Cache (${lastSession})`);
                 return {
                     price24k: data.price24k,
@@ -64,7 +67,8 @@ export const fetchGoldRate = async (city: string = 'India'): Promise<GoldRate | 
                     session: lastSession
                 };
             }
-            console.log(`[GoldRate] Refreshing for Evening Update...`);
+            if (isBadMock) console.log("[GoldRate] Detected bad mock data in DB. Refreshing...");
+            else console.log(`[GoldRate] Refreshing for Evening Update...`);
         }
     } catch (e) {
         console.warn("Firestore read failed", e);
@@ -121,8 +125,8 @@ export const fetchGoldRate = async (city: string = 'India'): Promise<GoldRate | 
         }
         // Fallback or Mock (Updated estimates 2025)
         return {
-            price24k: 7850,
-            price22k: 7200,
+            price24k: 13986,
+            price22k: 12820,
             currency: 'INR',
             timestamp: Date.now(),
             city: city || 'Unknown'
@@ -159,7 +163,12 @@ export const fetchHistoricalRates = async (city: string = 'India', days: number 
         targetDates.forEach(date => {
             if (dbMap.has(date)) {
                 const d = dbMap.get(date);
-                finalRates.push({ date, price24k: d.price24k, price22k: d.price22k, isMock: d.source === 'mock' });
+                // Purge bad mock data here as well
+                if (d.source === 'mock' && d.price24k < 10000) {
+                    missingDates.push(date);
+                } else {
+                    finalRates.push({ date, price24k: d.price24k, price22k: d.price22k, isMock: d.source === 'mock' });
+                }
             } else {
                 missingDates.push(date);
             }
@@ -171,7 +180,7 @@ export const fetchHistoricalRates = async (city: string = 'India', days: number 
     if (missingDates.length === 0) return finalRates.sort((a, b) => a.date.localeCompare(b.date));
 
     // 2. Fallback Generation for Missing Dates
-    let anchorPrice = 7600; // Updated anchor
+    let anchorPrice = 14000; // Updated anchor
     const liveRate = await fetchGoldRate(city);
     if (liveRate) anchorPrice = liveRate.price24k;
 
