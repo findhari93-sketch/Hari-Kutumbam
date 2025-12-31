@@ -24,6 +24,7 @@
     "file-saver": "^2.0.5",
     "firebase": "^12.7.0",
     "framer-motion": "^12.23.26",
+    "idb-keyval": "^6.2.2",
     "material-react-table": "^3.2.1",
     "next": "16.1.0",
     "papaparse": "^5.5.3",

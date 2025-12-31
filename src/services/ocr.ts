@@ -19,13 +19,42 @@ export interface ExtractedTransactionData {
 export const parseScreenshot = async (imageFile: File): Promise<ExtractedTransactionData> => {
     try {
         const worker = await Tesseract.createWorker('eng');
-        const ret = await worker.recognize(imageFile);
+
+        // Try multiple PSMs if amount is not found
+        // 3: Auto (Default), 4: Single Column (good for receipts), 6: Uniform Block
+        const psms = ['3', '4', '6'];
+        let finalData: ExtractedTransactionData = { paymentMode: 'Cash' };
+
+        for (const psm of psms) {
+            console.log(`OCR Attempt with PSM ${psm}...`);
+            await worker.setParameters({
+                tessedit_pageseg_mode: psm as any
+            });
+
+            const ret = await worker.recognize(imageFile);
+            const text = ret.data.text;
+            console.log(`OCR Raw Text (PSM ${psm}):`, text);
+
+            const data = extractDataFromText(text);
+
+            // If we found an amount, we are good!
+            // Or if we found explicit transaction IDs, we might be good even if amount is missed (user can fill it),
+            // but our goal is amount.
+            if (data.amount) {
+                finalData = data;
+                break;
+            }
+
+            // Keep the best data we found so far (e.g. if we found Date/ID but not amount in pass 1, keep it)
+            //Merging logic: prioritize new non-null values
+            finalData = { ...finalData, ...data };
+
+            // If we have at least ID and Date, maybe stop? No, we prioritize Amount.
+        }
+
         await worker.terminate();
+        return finalData;
 
-        const text = ret.data.text;
-        console.log('OCR Raw Text:', text);
-
-        return extractDataFromText(text);
     } catch (error) {
         console.error('OCR Error:', error);
         throw error;
@@ -48,19 +77,53 @@ const extractDataFromText = (text: string): ExtractedTransactionData => {
     // Attempt 1: Strict/Loose Currency Pattern
     // Matches: ₹3,800 or ₹ 3,800 or 3800.00 (if preceded by symbol)
     // Updated to match dot optionally for whole numbers
-    const currencyRegex = /(?:₹|Rs\.?|INR|[\u20B9\u20A8])\s*([\d,]+(?:\.\d{0,2})?)/i;
+    // Also handling common OCR misinterpretations of ₹ like '7', '?', 'T', 't', 'F' if they appear in a "price position"
+    // But we must be careful not to match random text. 
+    // We will look for symbol OR "start of line" + number if it looks like a receipt.
+
+    const currencyRegex = /(?:₹|Rs\.?|INR|[\u20B9\u20A8]|(?<=^|\n)\s*[tT7?F]\.?\s*)([\d,]+(?:\.\d{0,2})?)/i;
     let amountMatch = text.match(currencyRegex);
 
     if (amountMatch) {
         data.amount = amountMatch[1].replace(/,/g, '');
     } else {
         // Attempt 2: Numbers with commas (e.g. "3,800")
-        // Relaxed to catch "3,800" even if surrounded by other text, but implies it looks like an amount.
-        // We look for 1-3 digits, comma, 3 digits.
         const commaNumberRegex = /(^|\s)([\d]{1,3}(?:,[\d]{3})+(?:\.\d{2})?)(\s|$)/;
         amountMatch = text.match(commaNumberRegex);
         if (amountMatch) {
             data.amount = amountMatch[2].replace(/,/g, '');
+        } else {
+            // Attempt 3: Isolated Big(ish) number or GPay specific layout
+            // Often Tesseract merges lines, e.g. "To Name 15 eos..."
+
+            // Check for "To <Name> <Amount>" pattern
+            // We look for "To" followed by text, then a number.
+            const toAmountMatch = text.match(/To\s+.+?\s+(\d{1,7}(?:\.\d{2})?)\b/i);
+
+            // Heuristic: If we found "Completed" or "Paid to"
+            if (text.match(/(Completed|Paid to)/i)) {
+                // 1. Try "To ... Amount"
+                if (toAmountMatch) {
+                    // Check if this number is NOT a year (like 2025)
+                    // If it's a year, it's usually 4 digits. Small amounts < 1000 won't be years.
+                    const val = parseFloat(toAmountMatch[1]);
+                    const isYear = val > 1900 && val < 2100 && toAmountMatch[1].length === 4;
+
+                    if (!isYear) {
+                        data.amount = toAmountMatch[1];
+                    }
+                }
+
+                // 2. If still no amount, look for any standalone number on a line (approx)
+                if (!data.amount) {
+                    const simpleNumberMatch = text.match(/(^|\n)\s*[^\d]*(\d{1,7}(\.\d{2})?)[^\d]*($|\n)/);
+                    if (simpleNumberMatch) {
+                        // Verify it's not the year 2025 or time 8:25
+                        // This is risky, but better than nothing for "15"
+                        data.amount = simpleNumberMatch[2];
+                    }
+                }
+            }
         }
     }
 

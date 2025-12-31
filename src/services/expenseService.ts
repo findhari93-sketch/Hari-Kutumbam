@@ -10,7 +10,8 @@ import {
     where,
     Timestamp,
     orderBy,
-    getDoc
+    getDoc,
+    writeBatch
 } from 'firebase/firestore';
 import { Expense, AuditMetadata } from '@/types';
 import { User } from 'firebase/auth';
@@ -99,6 +100,67 @@ export const expenseService = {
             return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Expense[];
         } catch (error) {
             console.error("Error fetching expenses:", error);
+            throw error;
+        }
+    },
+    // Batch Delete (Soft Delete)
+    deleteExpenses: async (ids: string[], user: User) => {
+        try {
+            const batch = writeBatch(db);
+
+            for (const id of ids) {
+                const docRef = doc(db, COLLECTION_NAME, id);
+                // We assume client already confirmed. We just set isDeleted.
+                // Note: We can't easily get old data for audit in a batch without reading first (expensive).
+                // Let's just set updatedBy/At.
+                batch.update(docRef, {
+                    isDeleted: true,
+                    'audit.updatedBy': user.uid,
+                    'audit.updatedAt': Timestamp.now()
+                });
+            }
+
+            await batch.commit();
+        } catch (error) {
+            console.error('Error batch deleting expenses:', error);
+            throw error;
+        }
+    },
+
+    // Delete All Expenses (Hard or Soft?)
+    // User requested "clear everything... start fresh".
+    // Hard delete might be cleaner for "Start Fresh", but we usually prefer soft.
+    // However, for "Clear All Data" feature usually implies Wiping.
+    // Let's do Soft Delete for safety, but maybe moved to a "Archived" state? 
+    // The requirement is "clear everything". Let's assume soft delete all is safest.
+    deleteAllExpenses: async (user: User) => {
+        try {
+            // query all expenses for this user (or all if admin?)
+            // If family scope, usually just the household.
+            // Let's assume we delete all expenses in the collection or filtered by user?
+            // "Clear everything from the DB" implies all expenses.
+
+            const q = query(collection(db, COLLECTION_NAME));
+            const snapshot = await getDocs(q);
+
+            const batch = writeBatch(db);
+            let count = 0;
+
+            snapshot.docs.forEach((docSnapshot) => {
+                batch.update(docSnapshot.ref, {
+                    isDeleted: true,
+                    'audit.updatedBy': user.uid,
+                    'audit.updatedAt': Timestamp.now()
+                });
+                count++;
+            });
+
+            // Commit if any
+            if (count > 0) {
+                await batch.commit();
+            }
+        } catch (error) {
+            console.error('Error deleting all expenses:', error);
             throw error;
         }
     }

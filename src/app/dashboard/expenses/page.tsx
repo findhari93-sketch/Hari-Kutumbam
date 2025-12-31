@@ -6,6 +6,8 @@ import {
     Dialog,
     DialogTitle,
     DialogContent,
+    DialogActions,
+    Button,
     Stack,
     Fab,
     Paper,
@@ -44,6 +46,13 @@ export default function ExpensesPage() {
     const [openModal, setOpenModal] = useState(false);
     const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
 
+    // Delete Confirmation State
+    const [deleteConfirm, setDeleteConfirm] = useState<{ open: boolean; type: 'single' | 'multi'; ids: string[] }>({
+        open: false,
+        type: 'single',
+        ids: []
+    });
+
     useEffect(() => {
         fetchExpenses();
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -59,8 +68,11 @@ export default function ExpensesPage() {
         if (!user) return;
         try {
             const data = await expenseService.getAllExpenses();
+            // Filter deleted
+            const activeExpenses = data.filter(e => !e.isDeleted);
+
             // Data mapping dates
-            const mapped = data.map(e => ({
+            const mapped = activeExpenses.map(e => ({
                 ...e,
                 date: e.date instanceof Timestamp ? e.date.toDate() : new Date(e.date)
             }));
@@ -125,12 +137,16 @@ export default function ExpensesPage() {
         }
     };
 
-    const handleDelete = async (id: string) => {
+    const confirmDelete = async () => {
         if (!user) return;
-        if (!confirm("Are you sure? This will be audited.")) return;
         try {
-            await expenseService.deleteExpense(id, user);
+            if (deleteConfirm.type === 'single' && deleteConfirm.ids[0]) {
+                await expenseService.deleteExpense(deleteConfirm.ids[0], user);
+            } else if (deleteConfirm.type === 'multi') {
+                await expenseService.deleteExpenses(deleteConfirm.ids, user);
+            }
             fetchExpenses();
+            setDeleteConfirm({ ...deleteConfirm, open: false });
         } catch (error) {
             console.error("Delete error", error);
         }
@@ -193,7 +209,8 @@ export default function ExpensesPage() {
                 <ExpenseTable
                     expenses={filteredExpenses}
                     onEdit={handleEdit}
-                    onDelete={handleDelete}
+                    onDelete={(id) => setDeleteConfirm({ open: true, type: 'single', ids: [id] })}
+                    onDeleteRows={(ids) => setDeleteConfirm({ open: true, type: 'multi', ids })}
                 />
             </Container>
 
@@ -224,6 +241,26 @@ export default function ExpensesPage() {
                         />
                     </Box>
                 </DialogContent>
+            </Dialog>
+
+            {/* Delete Confirmation Dialog */}
+            <Dialog
+                open={deleteConfirm.open}
+                onClose={() => setDeleteConfirm({ ...deleteConfirm, open: false })}
+            >
+                <DialogTitle>Confirm Delete</DialogTitle>
+                <DialogContent>
+                    <Typography>
+                        {deleteConfirm.type === 'single'
+                            ? "Are you sure you want to delete this expense?"
+                            : `Are you sure you want to delete ${deleteConfirm.ids.length} expenses?`}
+                        This action has been audited.
+                    </Typography>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setDeleteConfirm({ ...deleteConfirm, open: false })}>Cancel</Button>
+                    <Button onClick={confirmDelete} color="error" variant="contained">Delete</Button>
+                </DialogActions>
             </Dialog>
         </Box>
     );

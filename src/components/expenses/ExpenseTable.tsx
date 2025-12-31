@@ -17,6 +17,7 @@ import {
     Stack,
     ToggleButton,
     ToggleButtonGroup,
+    Button
 } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -36,6 +37,7 @@ interface ExpenseTableProps {
     expenses: Expense[];
     onEdit: (expense: Expense) => void;
     onDelete: (id: string) => void;
+    onDeleteRows?: (ids: string[]) => void;
 }
 
 const getCategoryIcon = (category: string) => {
@@ -47,9 +49,10 @@ const getCategoryIcon = (category: string) => {
     return <CategoryIcon fontSize="inherit" />;
 };
 
-export default function ExpenseTable({ expenses, onEdit, onDelete }: ExpenseTableProps) {
+export default function ExpenseTable({ expenses, onEdit, onDelete, onDeleteRows }: ExpenseTableProps) {
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+    const [isDeleteMode, setIsDeleteMode] = useState(false);
     const [viewMode, setViewMode] = useState<'card' | 'table'>('table');
 
     useEffect(() => {
@@ -138,11 +141,68 @@ export default function ExpenseTable({ expenses, onEdit, onDelete }: ExpenseTabl
         enableStickyHeader: true,
         enableGlobalFilter: true,
         positionGlobalFilter: 'left',
+        enableRowSelection: isDeleteMode,
         initialState: {
             density: 'compact',
             pagination: { pageSize: 20, pageIndex: 0 },
             sorting: [{ id: 'date', desc: true }],
-            columnPinning: { left: ['date'], right: ['mrt-row-actions'] },
+            columnPinning: { left: ['mrt-row-select', 'date'], right: ['mrt-row-actions'] },
+        },
+        renderTopToolbarCustomActions: ({ table }) => {
+            const selectedRows = table.getSelectedRowModel().flatRows;
+            const selectedCount = selectedRows.length;
+
+            return (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    {!isDeleteMode ? (
+                        <Button
+                            startIcon={<DeleteIcon />}
+                            onClick={() => setIsDeleteMode(true)}
+                            color="inherit"
+                            size="small"
+                            sx={{ textTransform: 'none', fontWeight: 600 }}
+                        >
+                            Multi-Delete
+                        </Button>
+                    ) : (
+                        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', bgcolor: 'error.lighter', p: 0.5, borderRadius: 1 }}>
+                            <Button
+                                size="small"
+                                onClick={() => {
+                                    setIsDeleteMode(false);
+                                    table.resetRowSelection();
+                                }}
+                                sx={{ color: 'text.secondary' }}
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                color="error"
+                                variant="contained"
+                                size="small"
+                                startIcon={<DeleteIcon />}
+                                disabled={selectedCount === 0}
+                                onClick={() => {
+                                    if (onDeleteRows) {
+                                        const ids = selectedRows.map(r => r.original.id!).filter(Boolean);
+                                        onDeleteRows(ids);
+                                        // We don't exit mode here, parent handles confirmation.
+                                        // Upon successful delete (parent logic), we might want to reset.
+                                        // Parent will trigger re-render expenses.
+                                        // Ideally parent should tell us to clear? 
+                                        // For now, we rely on user manually exiting or rows disappearing.
+                                        // Actually resetting selection is safer after action.
+                                        setIsDeleteMode(false);
+                                        table.resetRowSelection();
+                                    }
+                                }}
+                            >
+                                Delete ({selectedCount})
+                            </Button>
+                        </Box>
+                    )}
+                </Box>
+            );
         },
         muiTablePaperProps: {
             elevation: 0,

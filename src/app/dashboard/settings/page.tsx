@@ -26,6 +26,7 @@ import {
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import { useRBAC } from '@/hooks/useRBAC';
 import { userService } from '@/services/userService';
+import { expenseService } from '@/services/expenseService';
 
 function TabPanel(props: { children?: React.ReactNode; index: number; value: number }) {
     const { children, value, index, ...other } = props;
@@ -42,6 +43,7 @@ export default function SettingsPage() {
     const [uploading, setUploading] = useState(false);
     const [avatarUrl, setAvatarUrl] = useState(profile?.photoURL);
     const [msg, setMsg] = useState('');
+    const [clearConfirmOpen, setClearConfirmOpen] = useState(false);
 
     // Crop state
     const [openCrop, setOpenCrop] = useState(false);
@@ -74,6 +76,18 @@ export default function SettingsPage() {
 
         // Reset input value so same file can be selected again
         e.target.value = '';
+    };
+
+    const handleClearAll = async () => {
+        if (!user) return;
+        try {
+            await expenseService.deleteAllExpenses(user);
+            setMsg('All expenses cleared successfully.');
+            setClearConfirmOpen(false);
+        } catch (error) {
+            console.error(error);
+            setMsg('Failed to clear data.');
+        }
     };
 
     const onCropComplete = (croppedArea: any, croppedAreaPixels: any) => {
@@ -128,7 +142,7 @@ export default function SettingsPage() {
             <Paper sx={{ width: '100%', mb: 2 }}>
                 <Tabs value={value} onChange={handleChange} indicatorColor="primary" textColor="primary">
                     <Tab label="Profile" />
-                    {/* Other tabs can remain or be conditionally rendered */}
+                    <Tab label="Data Management" />
                 </Tabs>
             </Paper>
 
@@ -174,6 +188,39 @@ export default function SettingsPage() {
                     </CardContent>
                 </Card>
             </TabPanel>
+
+            <TabPanel value={value} index={1}>
+                <Card sx={{ maxWidth: 600, borderColor: 'error.main' }} variant="outlined">
+                    <CardContent>
+                        <Typography variant="h6" color="error" gutterBottom>Danger Zone</Typography>
+                        <Typography variant="body2" color="text.secondary" paragraph>
+                            Once you delete your data, there is no going back. Please be certain.
+                        </Typography>
+                        <Button
+                            variant="contained"
+                            color="error"
+                            onClick={() => setClearConfirmOpen(true)}
+                        >
+                            Clear All Data (Start Fresh)
+                        </Button>
+                    </CardContent>
+                </Card>
+            </TabPanel>
+
+            {/* Clear Data Confirmation */}
+            <Dialog open={clearConfirmOpen} onClose={() => setClearConfirmOpen(false)}>
+                <DialogTitle>Clear All Data?</DialogTitle>
+                <DialogContent>
+                    <Typography>
+                        Are you sure you want to delete ALL expenses? This action cannot be undone.
+                        This is useful for starting fresh (e.g. New Year).
+                    </Typography>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setClearConfirmOpen(false)}>Cancel</Button>
+                    <Button onClick={handleClearAll} color="error" variant="contained">Yes, Clear All</Button>
+                </DialogActions>
+            </Dialog>
 
             {/* Crop Dialog */}
             <Dialog open={openCrop} onClose={() => { if (!uploading) { setOpenCrop(false); setSelectedImg(null); } }} maxWidth="sm" fullWidth>

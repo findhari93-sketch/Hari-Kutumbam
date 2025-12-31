@@ -9,6 +9,7 @@ const nextConfig: NextConfig = {
 
 export default withPWA({
   dest: "public",
+  swSrc: "src/service-worker.ts",
   cacheOnFrontEndNav: true,
   aggressiveFrontEndNavCaching: true,
   reloadOnOnline: true,
@@ -16,4 +17,4 @@ export default withPWA({
   workboxOptions: {
     disableDevLogs: true,
   },
-})(nextConfig);
+} as any)(nextConfig);

@@ -29,7 +29,8 @@ import { Expense, Category } from '@/types';
 import { Timestamp } from 'firebase/firestore';
 import { categoryService } from '@/services/categoryService';
 import { useAuth } from '@/context/AuthContext';
-import { useRouter } from 'next/navigation';
+import { get, del } from 'idb-keyval';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 interface ExpenseFormProps {
     initialData?: Expense | null;
@@ -40,6 +41,7 @@ interface ExpenseFormProps {
 export default function ExpenseForm({ initialData, onSave, onCancel }: ExpenseFormProps) {
     const { user } = useAuth();
     const router = useRouter();
+    const searchParams = useSearchParams();
     const [loading, setLoading] = useState(false);
     const [scanning, setScanning] = useState(false);
     const [categories, setCategories] = useState<Category[]>([]);
@@ -65,6 +67,52 @@ export default function ExpenseForm({ initialData, onSave, onCancel }: ExpenseFo
             categoryService.getUserCategories(user.uid).then(setCategories);
         }
     }, [user]);
+
+    // Check for Shared File (Web Share Target)
+    useEffect(() => {
+        const checkSharedFile = async () => {
+            const isShared = searchParams.get('shared');
+            if (isShared) {
+                try {
+                    setScanning(true);
+                    const file = await get('shared-file');
+                    if (file && file instanceof File) {
+                        await processFile(file);
+                        await del('shared-file');
+
+                        // Clean URL
+                        router.replace('/dashboard/expenses', { scroll: false });
+                    }
+                } catch (err) {
+                    console.error('Error processing shared file:', err);
+                } finally {
+                    setScanning(false);
+                }
+            }
+        };
+
+        checkSharedFile();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [searchParams]);
+
+    const processFile = async (file: File) => {
+        try {
+            const data = await parseScreenshot(file);
+
+            if (data.amount) setAmount(data.amount);
+            if (data.date) setDate(data.date.split('T')[0]);
+            if (data.description) setDescription(data.description);
+
+            if (data.paymentMode) setPaymentMode(data.paymentMode);
+            if (data.transactionId) setTransactionId(data.transactionId);
+            if (data.googleTransactionId) setGoogleTransactionId(data.googleTransactionId);
+            if (data.senderName) setSenderName(data.senderName);
+            if (data.receiverName) setReceiverName(data.receiverName);
+            if (data.bankName) setBankName(data.bankName);
+        } catch (err) {
+            console.error(err);
+        }
+    };
 
     useEffect(() => {
         if (initialData) {
@@ -124,22 +172,7 @@ export default function ExpenseForm({ initialData, onSave, onCancel }: ExpenseFo
         if (e.target.files && e.target.files[0]) {
             setScanning(true);
             try {
-                const data = await parseScreenshot(e.target.files[0]);
-
-                if (data.amount) setAmount(data.amount);
-                if (data.date) setDate(data.date.split('T')[0]); // Use just the date part for input type=date
-                if (data.description) setDescription(data.description);
-
-                // Auto-switch Payment Mode
-                if (data.paymentMode) setPaymentMode(data.paymentMode);
-
-                // Fill UPI Fields
-                if (data.transactionId) setTransactionId(data.transactionId);
-                if (data.googleTransactionId) setGoogleTransactionId(data.googleTransactionId);
-                if (data.senderName) setSenderName(data.senderName);
-                if (data.receiverName) setReceiverName(data.receiverName);
-                if (data.bankName) setBankName(data.bankName);
-
+                await processFile(e.target.files[0]);
             } catch (err) {
                 console.error(err);
             } finally {
