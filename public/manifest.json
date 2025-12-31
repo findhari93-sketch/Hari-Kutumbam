@@ -34,10 +34,15 @@
                     "name": "file",
                     "accept": [
                         "image/*",
+                        "image/png",
+                        "image/jpeg",
+                        "image/webp",
+                        "image/gif",
                         ".png",
                         ".jpg",
                         ".jpeg",
-                        ".webp"
+                        ".webp",
+                        ".gif"
                     ]
                 }
             ]
