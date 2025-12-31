@@ -1,6 +1,7 @@
 /// <reference lib="webworker" />
 import { clientsClaim } from 'workbox-core';
 import { precacheAndRoute } from 'workbox-precaching';
+import { registerRoute } from 'workbox-routing';
 import { set } from 'idb-keyval';
 
 declare const self: ServiceWorkerGlobalScope;
@@ -13,35 +14,34 @@ clientsClaim();
 precacheAndRoute(self.__WB_MANIFEST);
 
 // --- Share Target Handler ---
-// This listens for the POST request configured in manifest.json
-self.addEventListener('fetch', (event) => {
-    const url = new URL(event.request.url);
+registerRoute(
+    ({ url, request }) => request.method === 'POST' && url.pathname === '/share-target',
+    async ({ request }) => {
+        try {
+            const formData = await request.formData();
+            const mediaFile = formData.get('file');
+            const title = formData.get('title') || '';
+            const text = formData.get('text') || '';
+            const url = formData.get('url') || '';
 
-    // Matches the action in manifest.json: "action": "/share-target"
-    if (event.request.method === 'POST' && url.pathname === '/share-target') {
-        event.respondWith(
-            (async () => {
-                try {
-                    // 1. Get the FormData
-                    const formData = await event.request.formData();
-                    const mediaFile = formData.get('file'); // "file" matches the name in manifest.json
+            // Combine text parts
+            const description = [title, text, url].filter(v => v && typeof v === 'string').join(' ').trim();
 
-                    if (mediaFile && mediaFile instanceof File) {
-                        // 2. Save to IndexedDB so the client page can read it
-                        // We use idb-keyval for simplicity
-                        await set('shared-file', mediaFile);
-                        console.log('[SW] Shared file saved to IDB:', mediaFile.name);
-                    }
+            if (mediaFile && mediaFile instanceof File) {
+                await set('shared-file', mediaFile);
+            }
 
-                    // 3. Redirect to the Dashboard Expenses page with a query param
-                    return Response.redirect('/dashboard/expenses?shared=true', 303);
+            const redirectUrl = new URL('/dashboard/expenses', self.location.href);
+            redirectUrl.searchParams.set('shared', 'true');
+            if (description) {
+                redirectUrl.searchParams.set('description', encodeURIComponent(description));
+            }
 
-                } catch (err) {
-                    console.error('[SW] Error handling share target:', err);
-                    // Fallback redirect even on error
-                    return Response.redirect('/dashboard/expenses', 303);
-                }
-            })()
-        );
-    }
-});
+            return Response.redirect(redirectUrl.href, 303);
+        } catch (err) {
+            console.error('[SW] Error handling share target:', err);
+            return Response.redirect('/dashboard/expenses', 303);
+        }
+    },
+    'POST'
+);

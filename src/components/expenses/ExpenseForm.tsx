@@ -72,6 +72,12 @@ export default function ExpenseForm({ initialData, onSave, onCancel }: ExpenseFo
     useEffect(() => {
         const checkSharedFile = async () => {
             const isShared = searchParams.get('shared');
+            const descriptionParam = searchParams.get('description');
+
+            if (descriptionParam) {
+                setDescription(decodeURIComponent(descriptionParam));
+            }
+
             if (isShared) {
                 try {
                     setScanning(true);
@@ -80,7 +86,11 @@ export default function ExpenseForm({ initialData, onSave, onCancel }: ExpenseFo
                         await processFile(file);
                         await del('shared-file');
 
-                        // Clean URL
+                        // Clean URL - remove shared param but keep description if we want? 
+                        // Actually, cleaning whole query is better to avoid re-triggering
+                        router.replace('/dashboard/expenses', { scroll: false });
+                    } else if (descriptionParam) {
+                        // If just text share, we clean URL after reading
                         router.replace('/dashboard/expenses', { scroll: false });
                     }
                 } catch (err) {

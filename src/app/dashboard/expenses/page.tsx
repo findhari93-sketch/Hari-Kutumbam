@@ -20,6 +20,7 @@ import SearchIcon from '@mui/icons-material/Search';
 import ExpenseTable from '@/components/expenses/ExpenseTable';
 import ExpenseForm from '@/components/expenses/ExpenseForm';
 import DateRangeFilter from '@/components/expenses/DateRangeFilter';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Expense } from '@/types';
 import { expenseService } from '@/services/expenseService';
 import { useAuth } from '@/context/AuthContext';
@@ -63,6 +64,16 @@ export default function ExpensesPage() {
         applyFilter();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [expenses, dateRange, searchTerm]);
+
+    // Check for shared intent
+    const searchParams = useSearchParams();
+    useEffect(() => {
+        if (searchParams.get('shared') === 'true' || searchParams.get('description')) {
+            // Slight delay to allow data to settle if needed, or just immediate
+            setEditingExpense(null);
+            setOpenModal(true);
+        }
+    }, [searchParams]);
 
     const fetchExpenses = async () => {
         if (!user) return;
