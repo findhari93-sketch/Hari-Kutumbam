@@ -3,7 +3,9 @@ import withPWA from "@ducanh2912/next-pwa";
 
 const nextConfig: NextConfig = {
   /* config options here */
-  output: 'export',
+  /* config options here */
+  // output: 'export', // Removed to enable dynamic API routes for Share Target
+
   images: {
     unoptimized: true,
   },
