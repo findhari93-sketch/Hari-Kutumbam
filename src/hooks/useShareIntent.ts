@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { Capacitor } from '@capacitor/core';
 
 export const useShareIntent = () => {
     const router = useRouter();
@@ -10,8 +11,6 @@ export const useShareIntent = () => {
 
         const init = async () => {
             try {
-                // Dynamic import to avoid build-time errors with Capacitor
-                const { Capacitor } = await import('@capacitor/core');
                 if (!Capacitor.isNativePlatform()) return;
 
                 const { SendIntent } = await import('capacitor-plugin-send-intent');

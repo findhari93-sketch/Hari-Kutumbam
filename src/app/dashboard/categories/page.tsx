@@ -1,12 +1,14 @@
 'use client';
-import { useState, useEffect } from 'react';
-import { Box, Typography, Tab, Tabs, Paper } from '@mui/material';
+import React, { useState, useEffect } from 'react';
+import { Box, Typography, Tab, Tabs, Paper, CircularProgress } from '@mui/material';
 import { useRBAC } from '@/hooks/useRBAC';
 import { categoryService } from '@/services/categoryService';
 import { Category } from '@/types';
-import CategoryImport from '@/components/categories/CategoryImport';
-import CategoryFlowView from '@/components/categories/CategoryFlowView';
-import CategoryListView from '@/components/categories/CategoryListView';
+import dynamic from 'next/dynamic';
+
+const CategoryImport = dynamic(() => import('@/components/categories/CategoryImport'), { ssr: false });
+const CategoryFlowView = dynamic(() => import('@/components/categories/CategoryFlowView'), { ssr: false });
+const CategoryListView = dynamic(() => import('@/components/categories/CategoryListView'), { ssr: false });
 
 interface TabPanelProps {
     children?: React.ReactNode;
@@ -23,7 +25,17 @@ function TabPanel(props: TabPanelProps) {
     );
 }
 
+// ... imports match ...
+
 export default function CategoriesPage() {
+    return (
+        <React.Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}><CircularProgress /></Box>}>
+            <CategoriesContent />
+        </React.Suspense>
+    );
+}
+
+function CategoriesContent() {
     const { user } = useRBAC();
     const [value, setValue] = useState(0);
     const [categories, setCategories] = useState<Category[]>([]);

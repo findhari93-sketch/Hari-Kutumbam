@@ -53,3 +53,33 @@ export interface Expense {
     audit: AuditMetadata;
     isDeleted?: boolean; // Soft delete
 }
+
+export type IncomeSource = 'Salary' | 'Business' | 'Rent' | 'Interest' | 'Dividend' | 'Gift' | 'Refund' | 'Other';
+
+export interface Income {
+    id?: string;
+    amount: number;
+    source: IncomeSource;
+    description: string;
+    date: Timestamp | Date;
+    userId: string;
+    audit: AuditMetadata;
+    isDeleted?: boolean;
+}
+
+export type ContractType = 'Rent' | 'Insurance' | 'AMC' | 'Warranty' | 'Other';
+
+export interface Contract {
+    id?: string;
+    title: string;
+    type: ContractType;
+    provider: string; // e.g., "LIC", "Landlord", "Samsung"
+    startDate: Timestamp | Date;
+    expiryDate: Timestamp | Date;
+    documentUrl?: string;
+    description?: string;
+    reminderEnabled: boolean;
+    userId: string;
+    audit: AuditMetadata;
+    isDeleted?: boolean;
+}

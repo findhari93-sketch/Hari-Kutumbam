@@ -4,6 +4,8 @@ import withPWA from "@ducanh2912/next-pwa";
 const nextConfig: NextConfig = {
   /* config options here */
   /* config options here */
+  /* config options here */
+  output: process.env.NEXT_PUBLIC_BUILD_MODE === 'static' ? 'export' : undefined,
   // output: 'export', // Removed to enable dynamic API routes for Share Target
 
   images: {

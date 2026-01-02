@@ -9,8 +9,8 @@ import {
     Drawer,
     Box,
     Divider,
-    Toolbar,
     Typography,
+    Toolbar,
 } from '@mui/material';
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong'; // Expenses
@@ -22,13 +22,17 @@ import ApartmentIcon from '@mui/icons-material/Apartment'; // Real Estate
 import SettingsIcon from '@mui/icons-material/Settings';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
 import AccountTreeIcon from '@mui/icons-material/AccountTree';
+import AttachMoneyIcon from '@mui/icons-material/AttachMoney'; // Income
+import GavelIcon from '@mui/icons-material/Gavel'; // Contracts
 import { usePathname, useRouter } from 'next/navigation';
 
 const drawerWidth = 240;
 
 const menuItems = [
     { text: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' },
+    { text: 'Income', icon: <AttachMoneyIcon />, path: '/dashboard/income' },
     { text: 'Expenses', icon: <ReceiptLongIcon />, path: '/dashboard/expenses' },
+    { text: 'Contracts', icon: <GavelIcon />, path: '/dashboard/contracts' },
     { text: 'Categories', icon: <AccountTreeIcon />, path: '/dashboard/categories' },
     { text: 'Milk Tracker', icon: <LocalDrinkIcon />, path: '/dashboard/milk' },
     { text: 'Gold Vault', icon: <DiamondIcon />, path: '/dashboard/gold' },

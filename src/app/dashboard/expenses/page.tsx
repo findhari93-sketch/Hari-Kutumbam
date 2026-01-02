@@ -13,7 +13,8 @@ import {
     Paper,
     TextField,
     InputAdornment,
-    Container
+    Container,
+    CircularProgress
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import SearchIcon from '@mui/icons-material/Search';
@@ -29,6 +30,14 @@ import { isWithinInterval, startOfMonth, endOfMonth } from 'date-fns';
 import { Range } from 'react-date-range';
 
 export default function ExpensesPage() {
+    return (
+        <React.Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}><CircularProgress /></Box>}>
+            <ExpensesContent />
+        </React.Suspense>
+    );
+}
+
+function ExpensesContent() {
     const { user } = useAuth();
     const [expenses, setExpenses] = useState<Expense[]>([]);
     const [filteredExpenses, setFilteredExpenses] = useState<Expense[]>([]);
