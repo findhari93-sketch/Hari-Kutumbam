@@ -24,6 +24,7 @@ import UploadFileIcon from '@mui/icons-material/UploadFile';
 import AccountTreeIcon from '@mui/icons-material/AccountTree';
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney'; // Income
 import GavelIcon from '@mui/icons-material/Gavel'; // Contracts
+import AssessmentIcon from '@mui/icons-material/Assessment'; // Reports
 import { usePathname, useRouter } from 'next/navigation';
 
 const drawerWidth = 240;
@@ -33,6 +34,7 @@ const menuItems = [
     { text: 'Income', icon: <AttachMoneyIcon />, path: '/dashboard/income' },
     { text: 'Expenses', icon: <ReceiptLongIcon />, path: '/dashboard/expenses' },
     { text: 'Contracts', icon: <GavelIcon />, path: '/dashboard/contracts' },
+    { text: 'Analytics & Reports', icon: <AssessmentIcon />, path: '/dashboard/reports' },
     { text: 'Categories', icon: <AccountTreeIcon />, path: '/dashboard/categories' },
     { text: 'Milk Tracker', icon: <LocalDrinkIcon />, path: '/dashboard/milk' },
     { text: 'Gold Vault', icon: <DiamondIcon />, path: '/dashboard/gold' },
@@ -72,17 +74,8 @@ export default function Sidebar({ mobileOpen, onClose }: SidebarProps) {
                         <ListItemButton
                             selected={pathname === item.path}
                             onClick={() => handleNavigation(item.path)}
-                            sx={{
-                                '&.Mui-selected': {
-                                    backgroundColor: 'primary.light',
-                                    color: 'primary.contrastText',
-                                    '& .MuiListItemIcon-root': {
-                                        color: 'primary.contrastText',
-                                    },
-                                },
-                            }}
                         >
-                            <ListItemIcon sx={{ color: pathname === item.path ? 'inherit' : 'primary.main' }}>
+                            <ListItemIcon>
                                 {item.icon}
                             </ListItemIcon>
                             <ListItemText primary={item.text} />

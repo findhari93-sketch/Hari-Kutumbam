@@ -16,6 +16,7 @@ import {
     InputAdornment,
 } from '@mui/material';
 import { Visibility, VisibilityOff } from '@mui/icons-material';
+import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 import Link from 'next/link';
 
 export default function LoginPage() {
@@ -70,6 +71,9 @@ export default function LoginPage() {
                         backgroundColor: 'rgba(255, 255, 255, 0.95)',
                     }}
                 >
+                    <Box sx={{ mb: 2, bgcolor: 'primary.main', p: 1.5, borderRadius: '50%', boxShadow: '0 4px 14px rgba(37, 99, 235, 0.4)' }}>
+                        <AccountBalanceWalletIcon sx={{ fontSize: 40, color: 'white' }} />
+                    </Box>
                     <Typography component="h1" variant="h4" fontWeight="bold" color="primary" gutterBottom>
                         Welcome Back
                     </Typography>
@@ -133,7 +137,6 @@ export default function LoginPage() {
                             sx={{
                                 py: 1.5,
                                 mb: 2,
-                                borderRadius: 2,
                                 fontSize: '1rem',
                             }}
                         >

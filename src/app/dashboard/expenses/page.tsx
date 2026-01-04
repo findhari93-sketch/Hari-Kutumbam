@@ -14,13 +14,24 @@ import {
     TextField,
     InputAdornment,
     Container,
-    CircularProgress
+    CircularProgress,
+    ToggleButton,
+    ToggleButtonGroup,
+    Chip,
+    IconButton
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import SearchIcon from '@mui/icons-material/Search';
+import ViewListIcon from '@mui/icons-material/ViewList';
+import TableChartIcon from '@mui/icons-material/TableChart';
+import FilterListIcon from '@mui/icons-material/FilterList';
+
 import ExpenseTable from '@/components/expenses/ExpenseTable';
 import ExpenseForm from '@/components/expenses/ExpenseForm';
+import ExpenseList from '@/components/expenses/ExpenseList';
+import ExpenseDetailModal from '@/components/expenses/ExpenseDetailModal';
 import DateRangeFilter from '@/components/expenses/DateRangeFilter';
+
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Expense } from '@/types';
 import { expenseService } from '@/services/expenseService';
@@ -28,6 +39,9 @@ import { useAuth } from '@/context/AuthContext';
 import { Timestamp } from 'firebase/firestore';
 import { isWithinInterval, startOfMonth, endOfMonth } from 'date-fns';
 import { Range } from 'react-date-range';
+
+// Filter Chip Categories
+const FILTER_CATEGORIES = ['All', 'Food', 'Milk', 'Transport', 'Utilities', 'Family', 'Medical', 'Shopping', 'Entertainment'];
 
 export default function ExpensesPage() {
     return (
@@ -41,9 +55,11 @@ function ExpensesContent() {
     const { user } = useAuth();
     const [expenses, setExpenses] = useState<Expense[]>([]);
     const [filteredExpenses, setFilteredExpenses] = useState<Expense[]>([]);
+    const [viewMode, setViewMode] = useState<'list' | 'table'>('list');
 
-    // Search State
+    // Search & Filter State
     const [searchTerm, setSearchTerm] = useState('');
+    const [activeCategory, setActiveCategory] = useState('All');
 
     // Date Range State
     const [dateRange, setDateRange] = useState<Range>({
@@ -53,8 +69,10 @@ function ExpensesContent() {
     });
 
     // Modal State
-    const [openModal, setOpenModal] = useState(false);
+    const [openModal, setOpenModal] = useState(false); // For Add/Edit Form
+    const [openDetailModal, setOpenDetailModal] = useState(false); // For View Detail
     const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
+    const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null); // For Detail View
 
     // Delete Confirmation State
     const [deleteConfirm, setDeleteConfirm] = useState<{ open: boolean; type: 'single' | 'multi'; ids: string[] }>({
@@ -68,17 +86,16 @@ function ExpensesContent() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [user]);
 
-    // Re-filter when date range, search, or expenses change
+    // Re-filter
     useEffect(() => {
         applyFilter();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [expenses, dateRange, searchTerm]);
+    }, [expenses, dateRange, searchTerm, activeCategory]);
 
     // Check for shared intent
     const searchParams = useSearchParams();
     useEffect(() => {
         if (searchParams.get('shared') === 'true' || searchParams.get('description')) {
-            // Slight delay to allow data to settle if needed, or just immediate
             setEditingExpense(null);
             setOpenModal(true);
         }
@@ -119,12 +136,17 @@ function ExpensesContent() {
             });
         }
 
-        // 2. Search Filter
+        // 2. Category Filter (Chip)
+        if (activeCategory !== 'All') {
+            result = result.filter(e => e.category === activeCategory);
+        }
+
+        // 3. Search Filter
         if (searchTerm.trim()) {
             const lowerSearch = searchTerm.toLowerCase();
             result = result.filter(e =>
                 e.category.toLowerCase().includes(lowerSearch) ||
-                e.description.toLowerCase().includes(lowerSearch) ||
+                (e.description && e.description.toLowerCase().includes(lowerSearch)) ||
                 e.amount.toString().includes(lowerSearch)
             );
         }
@@ -167,6 +189,7 @@ function ExpensesContent() {
             }
             fetchExpenses();
             setDeleteConfirm({ ...deleteConfirm, open: false });
+            setOpenDetailModal(false); // Close detail if deleting from there
         } catch (error) {
             console.error("Delete error", error);
         }
@@ -182,6 +205,11 @@ function ExpensesContent() {
         setOpenModal(true);
     };
 
+    const handleListItemClick = (expense: Expense) => {
+        setSelectedExpense(expense);
+        setOpenDetailModal(true);
+    };
+
     const totalSpend = filteredExpenses.reduce((sum, e) => sum + e.amount, 0);
 
     return (
@@ -189,23 +217,44 @@ function ExpensesContent() {
             {/* Header Area */}
             <Box sx={{ bgcolor: 'background.paper', borderBottom: 1, borderColor: 'divider', position: 'sticky', top: 0, zIndex: 10 }}>
                 <Container maxWidth="lg" sx={{ px: { xs: 2, sm: 3 }, py: 2 }}>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+
+                    {/* Top Row: Title & Toggle */}
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                         <Box>
                             <Typography variant="h5" fontWeight="900" sx={{ letterSpacing: -0.5 }}>
                                 Expenses
                             </Typography>
                             <Typography variant="caption" color="text.secondary">
-                                Total Spend: <Box component="span" sx={{ color: 'text.primary', fontWeight: 'bold' }}>₹{totalSpend.toLocaleString()}</Box>
+                                Total: <Box component="span" sx={{ color: 'text.primary', fontWeight: 'bold' }}>₹{totalSpend.toLocaleString()}</Box>
                             </Typography>
                         </Box>
-                        <DateRangeFilter dateRange={dateRange} onChange={setDateRange} />
+
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            {/* Date Filter Icon Trigger - simplified for mobile, keeps existing full component in logic */}
+                            <DateRangeFilter dateRange={dateRange} onChange={setDateRange} />
+
+                            <ToggleButtonGroup
+                                value={viewMode}
+                                exclusive
+                                onChange={(_, v) => v && setViewMode(v)}
+                                size="small"
+                                sx={{ height: 32 }}
+                            >
+                                <ToggleButton value="list">
+                                    <ViewListIcon fontSize="small" />
+                                </ToggleButton>
+                                <ToggleButton value="table">
+                                    <TableChartIcon fontSize="small" />
+                                </ToggleButton>
+                            </ToggleButtonGroup>
+                        </Box>
                     </Box>
 
                     {/* Search Bar */}
                     <TextField
                         fullWidth
                         size="small"
-                        placeholder="Search expenses..."
+                        placeholder="Search transactions..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         InputProps={{
@@ -214,24 +263,59 @@ function ExpensesContent() {
                                     <SearchIcon fontSize="small" color="action" />
                                 </InputAdornment>
                             ),
-                            sx: { borderRadius: 3, bgcolor: 'action.hover' }
+                            sx: { borderRadius: 4, bgcolor: 'action.hover', border: 'none' }
                         }}
                         variant="outlined"
                         sx={{
+                            mb: 2,
                             '& .MuiOutlinedInput-notchedOutline': { border: 'none' },
                         }}
                     />
+
+                    {/* Filter Chips Scrollable */}
+                    <Stack
+                        direction="row"
+                        spacing={1}
+                        sx={{
+                            overflowX: 'auto',
+                            pb: 1,
+                            mx: -2,
+                            px: 2,
+                            '::-webkit-scrollbar': { display: 'none' },
+                            scrollbarWidth: 'none'
+                        }}
+                    >
+                        {FILTER_CATEGORIES.map(cat => (
+                            <Chip
+                                key={cat}
+                                label={cat}
+                                clickable
+                                color={activeCategory === cat ? "primary" : "default"}
+                                variant={activeCategory === cat ? "filled" : "outlined"}
+                                onClick={() => setActiveCategory(cat)}
+                                sx={{ fontWeight: 600 }}
+                            />
+                        ))}
+                    </Stack>
+
                 </Container>
             </Box>
 
             {/* Content Area */}
-            <Container maxWidth="lg" sx={{ px: { xs: 0, md: 3 }, py: 2 }}>
-                <ExpenseTable
-                    expenses={filteredExpenses}
-                    onEdit={handleEdit}
-                    onDelete={(id) => setDeleteConfirm({ open: true, type: 'single', ids: [id] })}
-                    onDeleteRows={(ids) => setDeleteConfirm({ open: true, type: 'multi', ids })}
-                />
+            <Container maxWidth="lg" sx={{ px: { xs: 2, md: 3 }, py: 2 }}>
+                {viewMode === 'list' ? (
+                    <ExpenseList
+                        expenses={filteredExpenses}
+                        onItemClick={handleListItemClick}
+                    />
+                ) : (
+                    <ExpenseTable
+                        expenses={filteredExpenses}
+                        onEdit={handleEdit}
+                        onDelete={(id) => setDeleteConfirm({ open: true, type: 'single', ids: [id] })}
+                        onDeleteRows={(ids) => setDeleteConfirm({ open: true, type: 'multi', ids })}
+                    />
+                )}
             </Container>
 
             {/* FAB */}
@@ -262,6 +346,15 @@ function ExpensesContent() {
                     </Box>
                 </DialogContent>
             </Dialog>
+
+            {/* Detail View Modal */}
+            <ExpenseDetailModal
+                open={openDetailModal}
+                onClose={() => setOpenDetailModal(false)}
+                expense={selectedExpense}
+                onEdit={handleEdit}
+                onDelete={(id) => setDeleteConfirm({ open: true, type: 'single', ids: [id] })}
+            />
 
             {/* Delete Confirmation Dialog */}
             <Dialog

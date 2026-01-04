@@ -150,16 +150,40 @@ const extractDataFromText = (text: string): ExtractedTransactionData => {
 
     // --- 3. Description (Heuristic) ---
     // Look for text usually below the Amount but above "Completed"
-    // This is hard to guarantee with simple string search, but we can try specific GPay markers.
-    // Example: "Srinivas salary return\n\nCompleted"
-    const descRegex = /([A-Za-z0-9 ]+)\n+Completed/i;
-    const descMatch = text.match(descRegex);
-    if (descMatch) {
-        data.description = descMatch[1].trim();
-    } else if (text.includes("Paid to")) {
-        // Fallback: "Paid to X"
-        const paidToMatch = text.match(/Paid to\s+(.+)/i);
-        if (paidToMatch) data.description = `Paid to ${paidToMatch[1]}`;
+    // GPay Style: Amount -> [Pill with Text] -> "Pay again" / "Completed"
+
+    // Strategy: Find strings between Amount match and "Completed" / "Pay again"
+    // We rely on the fact that we might have found the Amount string earlier.
+
+    // Regex to find "salary ku" or similar short text
+    // It is often surrounded by newlines or just floating there.
+
+    // Try to find the amount in the text again to get its position (index)
+    // Then look ahead until "Completed" or "Pay again" or "UPI transaction ID"
+
+    // Simplified Regex for the specific user case:
+    // Amount (with symbol) \n Description \n Pay again
+    const gpayDescRegex = /[₹0-9,.]+\s*\n\s*([A-Za-z0-9 ]+)\s*\n\s*(Pay again|Completed)/i;
+    const gpayMatch = text.match(gpayDescRegex);
+
+    if (gpayMatch) {
+        data.description = gpayMatch[1].trim();
+    } else {
+        // Fallback: finding "Completed" and looking backwards?
+        // Or using the old heuristics
+        const descRegex = /([A-Za-z0-9 ]+)\n+Completed/i;
+        const descMatch = text.match(descRegex);
+        if (descMatch) {
+            // Avoid capturing "Pay again" as description
+            const candidate = descMatch[1].trim();
+            if (!candidate.toLowerCase().includes('pay again')) {
+                data.description = candidate;
+            }
+        } else if (text.includes("Paid to")) {
+            // Fallback: "Paid to X"
+            const paidToMatch = text.match(/Paid to\s+(.+)/i);
+            if (paidToMatch) data.description = `Paid to ${paidToMatch[1]}`;
+        }
     }
 
     // --- 4. IDs (UPI / Google) ---

@@ -16,6 +16,7 @@ import { contractService } from '@/services/contractService';
 import { getBankAccounts } from '@/services/bankService';
 import { format, startOfMonth, subMonths, isSameMonth, differenceInDays } from 'date-fns';
 import { Timestamp } from 'firebase/firestore';
+import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 
 export default function DashboardPage() {
     const { user } = useAuth();
@@ -113,7 +114,7 @@ export default function DashboardPage() {
     };
 
     if (loading) {
-        return <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}><CircularProgress /></Box>;
+        return <LoadingSkeleton type="dashboard" />;
     }
 
     return (

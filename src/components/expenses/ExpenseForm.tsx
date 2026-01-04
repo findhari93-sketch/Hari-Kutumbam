@@ -146,8 +146,52 @@ export default function ExpenseForm({ initialData, onSave, onCancel }: ExpenseFo
             if (initialData.senderName) setSenderName(initialData.senderName);
             if (initialData.receiverName) setReceiverName(initialData.receiverName);
             if (initialData.bankName) setBankName(initialData.bankName);
+        } else {
+            // Restore from Draft if available
+            const draft = localStorage.getItem('expense_form_draft');
+            if (draft) {
+                try {
+                    const parsed = JSON.parse(draft);
+                    if (parsed.amount) setAmount(parsed.amount);
+                    if (parsed.categoryName) setCategoryName(parsed.categoryName);
+                    if (parsed.subcategory) setSubcategory(parsed.subcategory);
+                    if (parsed.date) setDate(parsed.date);
+                    if (parsed.description) setDescription(parsed.description);
+                    if (parsed.source) setSource(parsed.source);
+
+                    if (parsed.paymentMode) setPaymentMode(parsed.paymentMode);
+                    if (parsed.transactionId) setTransactionId(parsed.transactionId);
+                    if (parsed.googleTransactionId) setGoogleTransactionId(parsed.googleTransactionId);
+                    if (parsed.senderName) setSenderName(parsed.senderName);
+                    if (parsed.receiverName) setReceiverName(parsed.receiverName);
+                    if (parsed.bankName) setBankName(parsed.bankName);
+                } catch (e) {
+                    console.error('Failed to restore draft:', e);
+                }
+            }
         }
     }, [initialData]);
+
+    // Save Draft on Change
+    useEffect(() => {
+        if (!initialData) {
+            const draft = {
+                amount,
+                categoryName,
+                subcategory,
+                date,
+                description,
+                source,
+                paymentMode,
+                transactionId,
+                googleTransactionId,
+                senderName,
+                receiverName,
+                bankName
+            };
+            localStorage.setItem('expense_form_draft', JSON.stringify(draft));
+        }
+    }, [initialData, amount, categoryName, subcategory, date, description, source, paymentMode, transactionId, googleTransactionId, senderName, receiverName, bankName]);
 
 
 
@@ -171,6 +215,8 @@ export default function ExpenseForm({ initialData, onSave, onCancel }: ExpenseFo
                 receiverName,
                 bankName
             });
+            // Clear draft on successful save
+            localStorage.removeItem('expense_form_draft');
         } catch (error) {
             console.error(error);
         } finally {

@@ -48,6 +48,9 @@ export default function MilkTrackerPage() {
     const [historyDate, setHistoryDate] = useState('');
     const [historyQty, setHistoryQty] = useState('1');
 
+    // View All History Modal
+    const [viewAllOpen, setViewAllOpen] = useState(false);
+
     const pricePerLiter = 45; // Default
 
     const handleHistorySubmit = async () => {
@@ -82,8 +85,6 @@ export default function MilkTrackerPage() {
         await addLog(today, qty, pricePerLiter, true); // Default boiled=true
     };
 
-
-
     const handleSnooze = () => {
         // Snooze for 1 hour
         const snoozeUntil = new Date(Date.now() + 60 * 60 * 1000);
@@ -100,11 +101,14 @@ export default function MilkTrackerPage() {
                 <Typography variant="h5" fontWeight="bold">
                     Milk Tracker
                 </Typography>
-                <Chip
-                    label={isTodayLogged ? "Today Logged" : "Action Needed"}
-                    color={isTodayLogged ? "success" : "warning"}
-                    variant={isTodayLogged ? "filled" : "outlined"}
-                />
+                <Box sx={{ textAlign: 'right' }}>
+                    <Typography variant="caption" color="text.secondary" display="block">
+                        Month Total / Pending
+                    </Typography>
+                    <Typography variant="subtitle2" fontWeight="bold" color="primary">
+                        {stats.litersThisMonth} L <Box component="span" sx={{ color: 'text.secondary', mx: 0.5 }}>|</Box> <Box component="span" color="error.main">₹{stats.pendingAmount}</Box>
+                    </Typography>
+                </Box>
             </Box>
 
             <Stack spacing={2}>
@@ -257,7 +261,11 @@ export default function MilkTrackerPage() {
                                 </React.Fragment>
                             ))}
                         </List>
-                        <Button fullWidth sx={{ p: 1.5, color: 'text.secondary' }}>View All History</Button>
+                        {logs.length > 5 && (
+                            <Button fullWidth sx={{ p: 1.5, color: 'text.secondary' }} onClick={() => setViewAllOpen(true)}>
+                                View All History
+                            </Button>
+                        )}
                     </Card>
                 </Box>
 
@@ -303,7 +311,7 @@ export default function MilkTrackerPage() {
             <Dialog open={historyOpen} onClose={() => setHistoryOpen(false)} fullWidth maxWidth="xs">
                 <DialogTitle>Add Past Milk Log</DialogTitle>
                 <DialogContent>
-                    <Stack spacing={2} sx={{ mt: 1 }}>
+                    <Box sx={{ mt: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
                         <TextField
                             label="Date"
                             type="date"
@@ -320,13 +328,56 @@ export default function MilkTrackerPage() {
                             onChange={(e) => setHistoryQty(e.target.value)}
                             helperText="Enter 0 to mark as Skipped"
                         />
-                    </Stack>
+                    </Box>
                 </DialogContent>
                 <DialogActions>
                     <Button onClick={() => setHistoryOpen(false)}>Cancel</Button>
                     <Button onClick={handleHistorySubmit} variant="contained" color="primary">
                         Add Entry
                     </Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* View All History Dialog */}
+            <Dialog open={viewAllOpen} onClose={() => setViewAllOpen(false)} fullWidth maxWidth="sm">
+                <DialogTitle>All History</DialogTitle>
+                <DialogContent dividers>
+                    <List dense>
+                        {logs.map((log) => (
+                            <React.Fragment key={log.id}>
+                                <ListItem
+                                    secondaryAction={
+                                        <Typography variant="body2" fontWeight="bold">
+                                            ₹{log.cost}
+                                        </Typography>
+                                    }
+                                >
+                                    <ListItemAvatar>
+                                        <Avatar sx={{ bgcolor: log.status === 'bought' ? 'primary.light' : 'grey.300' }}>
+                                            {log.status === 'bought' ? <LocalDrinkIcon sx={{ fontSize: 16 }} /> : <BlockIcon sx={{ fontSize: 16 }} />}
+                                        </Avatar>
+                                    </ListItemAvatar>
+                                    <ListItemText
+                                        primary={log.status === 'bought' ? `${log.quantity} Liter(s)` : 'No Milk'}
+                                        secondary={
+                                            <span>
+                                                {format(new Date(log.date), 'EEEE, d MMM yyyy')}
+                                                {log.recordedBy && (
+                                                    <Typography component="span" variant="caption" sx={{ display: 'block', color: 'text.secondary' }}>
+                                                        By: {log.recordedBy}
+                                                    </Typography>
+                                                )}
+                                            </span>
+                                        }
+                                    />
+                                </ListItem>
+                                <Divider component="li" />
+                            </React.Fragment>
+                        ))}
+                    </List>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setViewAllOpen(false)}>Close</Button>
                 </DialogActions>
             </Dialog>
         </Box>
