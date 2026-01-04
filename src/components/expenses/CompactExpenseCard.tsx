@@ -50,58 +50,55 @@ export default function CompactExpenseCard({ expense, onClick }: CompactExpenseC
     // We will assume standard expense.
 
     return (
-        <Paper
-            elevation={0}
+        <Box
             onClick={() => onClick(expense)}
             sx={{
                 display: 'flex',
                 alignItems: 'center',
-                p: 1.5,
-                mb: 0.5,
-                borderRadius: 3,
-                bgcolor: 'transparent', // Make it blend or 'background.paper'
-                '&:active': { bgcolor: 'action.hover' },
+                py: 1.5,
+                px: 1,
                 cursor: 'pointer',
-                transition: 'background-color 0.2s'
+                bgcolor: 'transparent',
+                '&:active': { bgcolor: 'action.hover' },
+                transition: 'background-color 0.2s',
+                borderRadius: 1
             }}
         >
             {/* Avatar / Icon */}
             <Avatar
-                variant="rounded"
+                variant="rounded" // or circular, keeping rounded from before
                 sx={{
-                    bgcolor: isFailed ? 'error.light' : 'primary.lighter',
+                    bgcolor: isFailed ? 'error.light' : 'background.paper', // Use paper for contrast if list is on gray
                     color: isFailed ? 'error.main' : 'primary.main',
-                    width: 40,
-                    height: 40,
+                    width: 42,
+                    height: 42,
                     mr: 2,
-                    borderRadius: '12px'
+                    borderRadius: 3, // slightly softer
+                    boxShadow: 1 // subtle pop
                 }}
             >
                 {getIcon(expense.category)}
             </Avatar>
 
             {/* Middle Content */}
-            <Box sx={{ flexGrow: 1, overflow: 'hidden' }}>
-                <Typography variant="subtitle2" fontWeight="600" noWrap>
+            <Box sx={{ flexGrow: 1, overflow: 'hidden', mr: 1 }}>
+                <Typography variant="body1" fontWeight="600" noWrap sx={{ lineHeight: 1.2, mb: 0.3 }}>
                     {expense.description || expense.category}
                 </Typography>
-                <Typography variant="caption" color="text.secondary" noWrap>
-                    {format(dateObj, 'd MMMM')}
-                    {/* If same year, maybe hide year. For now 'd MMMM' e.g. '3 January' */}
+                <Typography variant="caption" color="text.secondary" noWrap sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    {format(dateObj, 'd MMM')} • {expense.category}
                 </Typography>
             </Box>
 
             {/* Right Side: Amount */}
             <Box sx={{ textAlign: 'right', minWidth: 70 }}>
-                <Typography variant="subtitle1" fontWeight="bold" color={isFailed ? 'text.disabled' : 'text.primary'}>
+                <Typography variant="subtitle1" fontWeight="700" sx={{ color: 'text.primary', letterSpacing: -0.2 }}>
                     ₹{expense.amount.toLocaleString()}
                 </Typography>
                 {isFailed && (
-                    <Typography variant="caption" color="error" sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 0.5 }}>
-                        Failed
-                    </Typography>
+                    <Typography variant="caption" color="error">Failed</Typography>
                 )}
             </Box>
-        </Paper>
+        </Box>
     );
 }

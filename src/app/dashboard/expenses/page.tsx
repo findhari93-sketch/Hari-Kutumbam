@@ -215,74 +215,96 @@ function ExpensesContent() {
     return (
         <Box sx={{ pb: 10, bgcolor: 'background.default', minHeight: '100vh' }}>
             {/* Header Area */}
-            <Box sx={{ bgcolor: 'background.paper', borderBottom: 1, borderColor: 'divider', position: 'sticky', top: 0, zIndex: 10 }}>
-                <Container maxWidth="lg" sx={{ px: { xs: 2, sm: 3 }, py: 2 }}>
+            <Paper
+                elevation={0}
+                sx={{
+                    borderBottom: 1,
+                    borderColor: 'divider',
+                    position: 'sticky',
+                    top: 0,
+                    zIndex: 10,
+                    borderRadius: 0,
+                    bgcolor: 'background.paper'
+                }}
+            >
+                <Container maxWidth="lg" sx={{ px: 2, pt: 2, pb: 1.5 }}>
 
-                    {/* Top Row: Title & Toggle */}
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                    {/* Top Row: Total & Actions */}
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
                         <Box>
-                            <Typography variant="h5" fontWeight="900" sx={{ letterSpacing: -0.5 }}>
-                                Expenses
+                            <Typography variant="body2" color="text.secondary" fontWeight="500">
+                                Total Spent
                             </Typography>
-                            <Typography variant="caption" color="text.secondary">
-                                Total: <Box component="span" sx={{ color: 'text.primary', fontWeight: 'bold' }}>₹{totalSpend.toLocaleString()}</Box>
+                            <Typography variant="h3" fontWeight="800" sx={{ letterSpacing: -1, mt: 0.5, bgClip: 'text', color: 'primary.main' }}>
+                                ₹{totalSpend.toLocaleString()}
                             </Typography>
                         </Box>
 
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            {/* Date Filter Icon Trigger - simplified for mobile, keeps existing full component in logic */}
+                        <Stack direction="row" spacing={1}>
                             <DateRangeFilter dateRange={dateRange} onChange={setDateRange} />
 
-                            <ToggleButtonGroup
+                            {/* View Mode Toggle - Only show if enough space/needed, simplified */}
+                            {/*  <ToggleButtonGroup
                                 value={viewMode}
                                 exclusive
                                 onChange={(_, v) => v && setViewMode(v)}
                                 size="small"
-                                sx={{ height: 32 }}
+                                sx={{ height: 32, display: { xs: 'none', sm: 'flex' } }} // Hide on mobile to save space if needed
                             >
-                                <ToggleButton value="list">
-                                    <ViewListIcon fontSize="small" />
-                                </ToggleButton>
-                                <ToggleButton value="table">
-                                    <TableChartIcon fontSize="small" />
-                                </ToggleButton>
-                            </ToggleButtonGroup>
-                        </Box>
+                                <ToggleButton value="list"><ViewListIcon fontSize="small" /></ToggleButton>
+                                <ToggleButton value="table"><TableChartIcon fontSize="small" /></ToggleButton>
+                            </ToggleButtonGroup> */}
+                        </Stack>
                     </Box>
 
-                    {/* Search Bar */}
-                    <TextField
-                        fullWidth
-                        size="small"
-                        placeholder="Search transactions..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        InputProps={{
-                            startAdornment: (
-                                <InputAdornment position="start">
-                                    <SearchIcon fontSize="small" color="action" />
-                                </InputAdornment>
-                            ),
-                            sx: { borderRadius: 4, bgcolor: 'action.hover', border: 'none' }
-                        }}
-                        variant="outlined"
-                        sx={{
-                            mb: 2,
-                            '& .MuiOutlinedInput-notchedOutline': { border: 'none' },
-                        }}
-                    />
+                    {/* Search & Filter Row */}
+                    <Stack direction="row" spacing={1.5} alignItems="center">
+                        <TextField
+                            fullWidth
+                            size="small"
+                            placeholder="Search..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            InputProps={{
+                                startAdornment: (
+                                    <InputAdornment position="start">
+                                        <SearchIcon fontSize="small" color="action" />
+                                    </InputAdornment>
+                                ),
+                                sx: {
+                                    borderRadius: 3,
+                                    bgcolor: 'action.hover',
+                                    border: 'none',
+                                    fontSize: '0.875rem',
+                                    height: 40
+                                }
+                            }}
+                            sx={{
+                                '& .MuiOutlinedInput-notchedOutline': { border: 'none' },
+                                flex: 2
+                            }}
+                        />
 
-                    {/* Filter Chips Scrollable */}
+                        {/* View Mode Toggle - Mobile integrated next to search or separate? keeping separate might be crowded. 
+                            Let's keep filter chips in next row for cleaner layout or scrollable row.
+                        */}
+                    </Stack>
+
+                    {/* Filter Chips - Scrollable Row */}
                     <Stack
                         direction="row"
                         spacing={1}
                         sx={{
                             overflowX: 'auto',
-                            pb: 1,
+                            py: 1.5,
                             mx: -2,
                             px: 2,
                             '::-webkit-scrollbar': { display: 'none' },
-                            scrollbarWidth: 'none'
+                            scrollbarWidth: 'none',
+                            '& .MuiChip-root': {
+                                flexShrink: 0,
+                                fontWeight: 500,
+                            }
                         }}
                     >
                         {FILTER_CATEGORIES.map(cat => (
@@ -290,16 +312,20 @@ function ExpensesContent() {
                                 key={cat}
                                 label={cat}
                                 clickable
+                                size="medium"
                                 color={activeCategory === cat ? "primary" : "default"}
                                 variant={activeCategory === cat ? "filled" : "outlined"}
                                 onClick={() => setActiveCategory(cat)}
-                                sx={{ fontWeight: 600 }}
+                                sx={{
+                                    border: activeCategory !== cat ? '1px solid' : 'none',
+                                    borderColor: 'divider',
+                                    borderRadius: 2
+                                }}
                             />
                         ))}
                     </Stack>
-
                 </Container>
-            </Box>
+            </Paper>
 
             {/* Content Area */}
             <Container maxWidth="lg" sx={{ px: { xs: 2, md: 3 }, py: 2 }}>

@@ -45,52 +45,55 @@ export default function ExpenseList({ expenses, onItemClick }: ExpenseListProps)
     }
 
     return (
-        <Stack spacing={2} sx={{ pb: 10 }}>
+        <Stack spacing={0.5} sx={{ pb: 10 }}>
             {grouped.map((group) => {
                 const splitKey = group.key.split(' '); // ["January", "2026"]
                 const month = splitKey[0];
                 const year = splitKey[1];
-                const isCurrentYear = isSameYear(new Date(), new Date(parseInt(year), 0, 1));
 
                 return (
-                    <Box key={group.key}>
-                        {/* Group Header */}
+                    <Box key={group.key} sx={{ mb: 2 }}>
+                        {/* Group Header - Sticky */}
                         <Box sx={{
+                            position: 'sticky',
+                            top: 130, // Adjust based on header height
+                            zIndex: 5,
+                            bgcolor: 'background.default',
+                            py: 1,
+                            px: 1,
                             display: 'flex',
                             justifyContent: 'space-between',
-                            alignItems: 'baseline',
-                            mb: 1,
-                            px: 1,
-                            mt: 2
+                            alignItems: 'center',
+                            borderBottom: '1px dashed',
+                            borderColor: 'divider',
+                            mb: 1
                         }}>
-                            <Box>
-                                <Typography variant="h6" fontWeight="bold" sx={{ lineHeight: 1 }}>
+                            <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1 }}>
+                                <Typography variant="h6" fontWeight="800" color="text.primary">
                                     {month}
                                 </Typography>
-                                <Typography variant="caption" color="text.secondary" fontWeight="bold">
+                                <Typography variant="caption" fontWeight="600" color="text.secondary">
                                     {year}
                                 </Typography>
                             </Box>
-                            <Typography variant="h6" fontWeight="bold" color="text.primary">
+                            <Typography variant="subtitle2" fontWeight="700" color="text.secondary">
                                 ₹{group.total.toLocaleString()}
                             </Typography>
                         </Box>
 
-                        {/* List Items */}
-                        <Box sx={{
-                            bgcolor: 'rgba(255, 255, 255, 0.6)',
-                            backdropFilter: 'blur(10px)',
-                            borderRadius: 4,
-                            overflow: 'hidden'
-                        }}>
-                            {group.items.map((expense) => (
-                                <CompactExpenseCard
-                                    key={expense.id}
-                                    expense={expense}
-                                    onClick={onItemClick}
-                                />
+                        {/* List Items - Direct list, no container box to save space/margins */}
+                        <Stack spacing={0}>
+                            {group.items.map((expense, index) => (
+                                <Box key={expense.id}>
+                                    <CompactExpenseCard
+                                        expense={expense}
+                                        onClick={onItemClick}
+                                    />
+                                    {/* Divider between items, but not last one */}
+                                    {index < group.items.length - 1 && <Divider sx={{ my: 0, ml: 8, mr: 2, borderStyle: 'dashed' }} />}
+                                </Box>
                             ))}
-                        </Box>
+                        </Stack>
                     </Box>
                 );
             })}
