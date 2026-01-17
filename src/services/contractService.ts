@@ -6,6 +6,7 @@ import {
     doc,
     getDocs,
     query,
+    where,
     Timestamp,
     orderBy,
     getDoc,
@@ -98,11 +99,16 @@ export const contractService = {
         }
     },
 
-    getAllContracts: async () => {
+    getAllContracts: async (userId?: string) => {
         try {
+            const constraints: any[] = [orderBy('expiryDate', 'asc')];
+            if (userId) {
+                constraints.push(where('userId', '==', userId));
+            }
+
             const q = query(
                 collection(db, COLLECTION_NAME),
-                orderBy('expiryDate', 'asc') // Sort by expiry closest first
+                ...constraints
             );
             const snapshot = await getDocs(q);
             return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Contract[];

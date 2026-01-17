@@ -41,9 +41,11 @@ export default function TopBar({ onMenuClick }: TopBarProps) {
             sx={{
                 width: { sm: `calc(100% - 240px)` },
                 ml: { sm: `240px` },
-                bgcolor: 'background.paper',
+                bgcolor: 'rgba(255, 255, 255, 0.7)',
+                backdropFilter: 'blur(20px)',
+                borderBottom: '1px solid rgba(0,0,0,0.05)',
                 color: 'text.primary',
-                boxShadow: 1,
+                boxShadow: 'none',
             }}
         >
             <Toolbar>

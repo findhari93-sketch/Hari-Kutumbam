@@ -1,7 +1,7 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getAuth, connectAuthEmulator } from 'firebase/auth';
-import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore';
-import { getStorage, connectStorageEmulator } from 'firebase/storage';
+import { getAuth } from 'firebase/auth';
+import { getFirestore } from 'firebase/firestore';
+import { getStorage } from 'firebase/storage';
 import { getAnalytics, isSupported } from 'firebase/analytics';
 
 const firebaseConfig = {
@@ -24,14 +24,12 @@ export const storage = getStorage(app);
 // Connect to Emulators if running locally
 // Note: We check window 'undefined' because this runs on server+client in Next.js
 // but emulators are usually only needed for client-side interactions or dev server.
-if (process.env.NODE_ENV === 'development' && typeof window !== 'undefined') {
-  // Only connect if we are on localhost
-  if (window.location.hostname === 'localhost') {
-    console.log('🔗 Connecting to Firebase Emulators...');
-    connectAuthEmulator(auth, "http://localhost:9099");
-    connectFirestoreEmulator(db, 'localhost', 8080);
-    connectStorageEmulator(storage, 'localhost', 9199);
-  }
+// Emulator connection disabled to prevent localhost connection errors
+// if (process.env.NODE_ENV === 'development' && typeof window !== 'undefined') {
+//   // logic removed
+// }
+if (typeof window !== 'undefined') {
+  console.log('🔥 Firebase Initialized (Cloud Mode)');
 }
 
 let analytics;

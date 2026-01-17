@@ -64,6 +64,20 @@ service cloud.firestore {
       );
     }
 
+    // --- Incomes Collection ---
+    match /incomes/{incomeId} {
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isFamilyOrAdmin());
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isAuthenticated() && (resource.data.userId == request.auth.uid || isFamilyOrAdmin());
+    }
+
+    // --- Contracts Collection ---
+    match /contracts/{contractId} {
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isFamilyOrAdmin());
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isAuthenticated() && (resource.data.userId == request.auth.uid || isFamilyOrAdmin());
+    }
+
     // --- Legacy / Other Collections ---
     
     // Transactions (Personal)

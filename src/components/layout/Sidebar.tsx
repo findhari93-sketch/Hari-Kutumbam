@@ -61,9 +61,16 @@ export default function Sidebar({ mobileOpen, onClose }: SidebarProps) {
 
     const drawerContent = (
         <div>
-            <Toolbar sx={{ justifyContent: 'center', alignItems: 'center', gap: 1 }}>
-                <Box component="img" src="/logo.png" alt="Logo" sx={{ height: 32, width: 32, borderRadius: '50%' }} />
-                <Typography variant="h6" noWrap component="div" sx={{ fontWeight: 'bold', color: 'primary.main' }}>
+            <Toolbar sx={{ justifyContent: 'center', alignItems: 'center', gap: 1.5, py: 3, mb: 1 }}>
+                <Box component="img" src="/logo.png" alt="Logo" sx={{ height: 40, width: 40, borderRadius: '12px', boxShadow: '0 4px 12px rgba(37, 99, 235, 0.2)' }} />
+                <Typography variant="h6" noWrap component="div" sx={{
+                    fontWeight: 800,
+                    background: 'linear-gradient(135deg, #2563EB 0%, #7C3AED 100%)',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                    letterSpacing: '-0.02em',
+                    fontSize: '1.25rem'
+                }}>
                     Hari Kutumbam
                 </Typography>
             </Toolbar>

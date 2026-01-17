@@ -6,6 +6,9 @@ import ReceiptIcon from '@mui/icons-material/Receipt';
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 import WarningIcon from '@mui/icons-material/Warning';
+import LocalDrinkIcon from '@mui/icons-material/LocalDrink';
+import DiamondIcon from '@mui/icons-material/Diamond';
+import { alpha } from '@mui/material/styles';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { expenseService } from '@/services/expenseService';
@@ -45,12 +48,12 @@ export default function DashboardPage() {
 
             // 1. Fetch All Data in Parallel
             const [expenses, incomes, goldItems, goldRate, accounts, contracts] = await Promise.all([
-                expenseService.getAllExpenses(),
-                incomeService.getAllIncomes(),
+                expenseService.getAllExpenses(user?.uid),
+                incomeService.getAllIncomes(user?.uid),
                 getGoldItems(user?.uid),
                 fetchGoldRate(),
                 getBankAccounts(),
-                contractService.getAllContracts()
+                contractService.getAllContracts(user?.uid)
             ]);
 
             // 2. Calculate Monthly Stats
@@ -126,26 +129,22 @@ export default function DashboardPage() {
             {/* Summary Cards */}
             <Grid container spacing={3} sx={{ mb: 4 }}>
                 <Grid size={{ xs: 12, md: 4 }}>
-                    <Card sx={{ bgcolor: 'primary.main', color: 'white', borderRadius: 4, boxShadow: '0 8px 32px rgba(37, 99, 235, 0.2)' }}>
-                        <CardContent>
-                            <Typography variant="subtitle2" sx={{ opacity: 0.8 }}>Total Net Worth (Gold + Bank)</Typography>
-                            <Typography variant="h3" fontWeight="bold" sx={{ my: 1 }}>₹ {netWorth.toLocaleString()}</Typography>
-                            <Typography variant="caption">Live Estimate</Typography>
-                        </CardContent>
-                    </Card>
-                </Grid>
-
-                <Grid size={{ xs: 12, md: 4 }}>
-                    <Card sx={{ borderRadius: 4 }}>
-                        <CardContent>
-                            <Typography variant="subtitle2" color="text.secondary">Monthly Savings (Net)</Typography>
-                            <Typography variant="h4" fontWeight="bold" sx={{ my: 1, color: savings >= 0 ? 'success.main' : 'error.main' }}>
-                                ₹ {Math.abs(savings).toLocaleString()}
-                            </Typography>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                {savings >= 0 ? <ArrowUpwardIcon fontSize="small" color="success" /> : <ArrowDownwardIcon fontSize="small" color="error" />}
-                                <Typography variant="caption" color={savings >= 0 ? 'success.main' : 'error.main'}>
-                                    {savings >= 0 ? 'Positive Cashflow' : 'Deficit'}
+                    <Card sx={{
+                        background: 'linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)',
+                        color: 'white',
+                        boxShadow: '0 20px 25px -5px rgba(37, 99, 235, 0.3), 0 10px 10px -5px rgba(37, 99, 235, 0.2)',
+                        position: 'relative',
+                        overflow: 'hidden'
+                    }}>
+                        <Box sx={{ position: 'absolute', top: -20, right: -20, opacity: 0.1 }}>
+                            <DiamondIcon sx={{ fontSize: 180 }} />
+                        </Box>
+                        <CardContent sx={{ position: 'relative', p: 3 }}>
+                            <Typography variant="subtitle2" sx={{ opacity: 0.9, fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Total Net Worth</Typography>
+                            <Typography variant="h3" fontWeight="800" sx={{ my: 1 }}>₹ {netWorth.toLocaleString()}</Typography>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, opacity: 0.9 }}>
+                                <Typography variant="caption" sx={{ bgcolor: 'rgba(255,255,255,0.2)', px: 1, py: 0.5, borderRadius: 1, fontWeight: 500 }}>
+                                    Gold + Bank
                                 </Typography>
                             </Box>
                         </CardContent>
@@ -153,14 +152,54 @@ export default function DashboardPage() {
                 </Grid>
 
                 <Grid size={{ xs: 12, md: 4 }}>
-                    <Card sx={{ borderRadius: 4 }}>
-                        <CardContent>
-                            <Typography variant="subtitle2" color="text.secondary">Expenses (This Month)</Typography>
-                            <Typography variant="h4" fontWeight="bold" sx={{ my: 1, color: 'error.main' }}>
-                                ₹ {monthlyExpense.toLocaleString()}
+                    <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                        <CardContent sx={{ p: 3 }}>
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
+                                <Box>
+                                    <Typography variant="subtitle2" color="text.secondary" gutterBottom fontWeight="600" sx={{ textTransform: 'uppercase', fontSize: '0.75rem' }}>Monthly Savings</Typography>
+                                    <Typography variant="h4" fontWeight="800" sx={{ my: 0.5, color: savings >= 0 ? 'success.main' : 'error.main' }}>
+                                        ₹ {Math.abs(savings).toLocaleString()}
+                                    </Typography>
+                                </Box>
+                                <Box sx={{
+                                    p: 1,
+                                    borderRadius: '50%',
+                                    bgcolor: savings >= 0 ? alpha('#10B981', 0.1) : alpha('#EF4444', 0.1),
+                                    color: savings >= 0 ? 'success.main' : 'error.main',
+                                    display: 'flex'
+                                }}>
+                                    {savings >= 0 ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />}
+                                </Box>
+                            </Box>
+                            <Typography variant="body2" color={savings >= 0 ? 'success.main' : 'error.main'} sx={{ mt: 1, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                {savings >= 0 ? '+ Positive Cashflow' : '- Deficit Alert'}
                             </Typography>
-                            <Typography variant="caption" color="text.secondary">
-                                Income: ₹ {monthlyIncome.toLocaleString()}
+                        </CardContent>
+                    </Card>
+                </Grid>
+
+                <Grid size={{ xs: 12, md: 4 }}>
+                    <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                        <CardContent sx={{ p: 3 }}>
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
+                                <Box>
+                                    <Typography variant="subtitle2" color="text.secondary" gutterBottom fontWeight="600" sx={{ textTransform: 'uppercase', fontSize: '0.75rem' }}>Expenses (This Month)</Typography>
+                                    <Typography variant="h4" fontWeight="800" sx={{ my: 0.5, color: 'error.main' }}>
+                                        ₹ {monthlyExpense.toLocaleString()}
+                                    </Typography>
+                                </Box>
+                                <Box sx={{
+                                    p: 1,
+                                    borderRadius: '50%',
+                                    bgcolor: alpha('#EF4444', 0.1),
+                                    color: 'error.main',
+                                    display: 'flex'
+                                }}>
+                                    <ArrowDownwardIcon fontSize="small" />
+                                </Box>
+                            </Box>
+                            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                                Income: <span style={{ fontWeight: 600, color: '#10B981' }}>₹ {monthlyIncome.toLocaleString()}</span>
                             </Typography>
                         </CardContent>
                     </Card>
@@ -174,48 +213,96 @@ export default function DashboardPage() {
                 </Alert>
             )}
 
-            {/* Analytics Chart */}
+            {/* Analytics & Actions Grid */}
             <Grid container spacing={3}>
                 <Grid size={{ xs: 12, md: 8 }}>
-                    <Paper sx={{ p: 3, borderRadius: 4, height: 400 }}>
-                        <Typography variant="h6" gutterBottom fontWeight="bold">Income vs Expense Trend</Typography>
-                        <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                                <XAxis dataKey="name" axisLine={false} tickLine={false} />
-                                <YAxis axisLine={false} tickLine={false} />
-                                <Tooltip cursor={{ fill: 'transparent' }} contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
-                                <Legend />
-                                <Bar dataKey="Income" fill="#60A5FA" radius={[4, 4, 0, 0]} barSize={20} />
-                                <Bar dataKey="Expense" fill="#F87171" radius={[4, 4, 0, 0]} barSize={20} />
+                    <Paper sx={{ p: 3, height: 400, boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+                            <Typography variant="h6" fontWeight="700">Financial Trends</Typography>
+                            <Box sx={{ display: 'flex', gap: 2 }}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                    <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: '#60A5FA' }} />
+                                    <Typography variant="caption" color="text.secondary" fontWeight="500">Income</Typography>
+                                </Box>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                    <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: '#F87171' }} />
+                                    <Typography variant="caption" color="text.secondary" fontWeight="500">Expense</Typography>
+                                </Box>
+                            </Box>
+                        </Box>
+                        <ResponsiveContainer width="100%" height="85%">
+                            <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }} barSize={16}>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
+                                <XAxis
+                                    dataKey="name"
+                                    axisLine={false}
+                                    tickLine={false}
+                                    tick={{ fill: '#64748B', fontSize: 12, fontWeight: 500 }}
+                                    dy={10}
+                                />
+                                <YAxis
+                                    axisLine={false}
+                                    tickLine={false}
+                                    tick={{ fill: '#64748B', fontSize: 11 }}
+                                />
+                                <Tooltip
+                                    cursor={{ fill: '#F1F5F9' }}
+                                    contentStyle={{
+                                        borderRadius: 8,
+                                        border: 'none',
+                                        boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
+                                        padding: '12px'
+                                    }}
+                                />
+                                <Bar dataKey="Income" fill="#3B82F6" radius={[4, 4, 0, 0]} />
+                                <Bar dataKey="Expense" fill="#EF4444" radius={[4, 4, 0, 0]} />
                             </BarChart>
                         </ResponsiveContainer>
                     </Paper>
                 </Grid>
 
                 <Grid size={{ xs: 12, md: 4 }}>
-                    <Paper sx={{ p: 3, borderRadius: 4, height: '100%' }}>
-                        <Typography variant="h6" gutterBottom fontWeight="bold">Quick Actions</Typography>
-                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
-                            <Button
-                                variant="outlined"
-                                startIcon={<ReceiptIcon />}
-                                fullWidth
-                                size="large"
-                                onClick={() => router.push('/dashboard/expenses')}
-                            >
-                                Add Expense
-                            </Button>
-                            <Button variant="outlined" color="primary" fullWidth size="large" onClick={() => router.push('/dashboard/income')}>
-                                Add Income
-                            </Button>
-                            <Button variant="outlined" color="secondary" fullWidth size="large" onClick={() => router.push('/dashboard/milk')}>
-                                Log Milk
-                            </Button>
-                            <Button variant="outlined" color="warning" fullWidth size="large" onClick={() => router.push('/dashboard/gold')}>
-                                Add Gold
-                            </Button>
-                        </Box>
+                    <Paper sx={{ p: 0, height: '100%', bgcolor: 'transparent', boxShadow: 'none' }}>
+                        <Typography variant="h6" gutterBottom fontWeight="700" sx={{ mb: 2, px: 1 }}>Quick Actions</Typography>
+                        <Grid container spacing={2}>
+                            {[
+                                { label: 'Expense', icon: <ReceiptIcon sx={{ fontSize: 24 }} />, color: '#EF4444', onClick: () => router.push('/dashboard/expenses') },
+                                { label: 'Income', icon: <ArrowUpwardIcon sx={{ fontSize: 24 }} />, color: '#10B981', onClick: () => router.push('/dashboard/income') },
+                                { label: 'Milk Log', icon: <LocalDrinkIcon sx={{ fontSize: 24 }} />, color: '#3B82F6', onClick: () => router.push('/dashboard/milk') },
+                                { label: 'Gold', icon: <DiamondIcon sx={{ fontSize: 24 }} />, color: '#F59E0B', onClick: () => router.push('/dashboard/gold') }
+                            ].map((action, index) => (
+                                <Grid size={{ xs: 6 }} key={index}>
+                                    <Card
+                                        onClick={action.onClick}
+                                        sx={{
+                                            p: 2,
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            gap: 1.5,
+                                            cursor: 'pointer',
+                                            transition: 'all 0.2s',
+                                            '&:hover': { transform: 'translateY(-2px)', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' },
+                                            border: '1px solid',
+                                            borderColor: 'divider',
+                                            height: '100%'
+                                            // borderRadius inherited from theme (16)
+                                        }}
+                                    >
+                                        <Box sx={{
+                                            p: 1.5,
+                                            borderRadius: '50%',
+                                            bgcolor: alpha(action.color, 0.1),
+                                            color: action.color
+                                        }}>
+                                            {action.icon}
+                                        </Box>
+                                        <Typography variant="body2" fontWeight="600" align="center">{action.label}</Typography>
+                                    </Card>
+                                </Grid>
+                            ))}
+                        </Grid>
                     </Paper>
                 </Grid>
             </Grid>

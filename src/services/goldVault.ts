@@ -112,8 +112,12 @@ export const deleteGoldItem = async (itemId: string) => {
 // We keep userId arg optional for backward compat but ignore it to show all
 export const getGoldItems = async (userId?: string): Promise<GoldItem[]> => {
     try {
-        // Fetch ALL items for shared family view
-        const q = query(collection(db, COLLECTION));
+        const constraints: any[] = [];
+        if (userId) {
+            constraints.push(where('userId', '==', userId));
+        }
+
+        const q = query(collection(db, COLLECTION), ...constraints);
         const snapshot = await getDocs(q);
         return snapshot.docs.map(d => ({ id: d.id, ...d.data() } as GoldItem));
     } catch (e) {

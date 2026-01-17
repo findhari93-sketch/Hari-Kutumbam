@@ -4,6 +4,8 @@ import {
     getMilkPayments,
     addMilkLog as addLogService,
     addMilkPayment as addPaymentService,
+    updateMilkLog as updateLogService,
+    deleteMilkLog as deleteLogService,
     MilkLog,
     MilkPayment
 } from '@/services/firestore';
@@ -65,22 +67,73 @@ export const useMilkData = () => {
         fetchData();
     }, [user]);
 
+    const validateDate = (dateStr: string) => {
+        const selected = new Date(dateStr);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0); // Normalize today
+
+        // Create a comparison date for selected (treat input as start of day)
+        const compareDate = new Date(selected);
+        compareDate.setHours(0, 0, 0, 0);
+
+        if (compareDate > today) {
+            throw new Error("Cannot add/update records for future dates.");
+        }
+    };
+
     const addLog = async (date: string, quantity: number, price: number, boiled: boolean) => {
         if (!user) return;
-        const status = quantity > 0 ? 'bought' : 'skipped';
-        const cost = quantity * price;
+        try {
+            validateDate(date);
+            const status = quantity > 0 ? 'bought' : 'skipped';
+            const cost = quantity * price;
 
-        await addLogService(user.uid, {
-            date,
-            quantity,
-            pricePerLiter: price,
-            cost,
-            boiled,
-            status,
-            vendorName: 'Default',
-            recordedBy: user.displayName || user.email?.split('@')[0] || 'Unknown'
-        });
-        await fetchData(); // Refresh
+            await addLogService(user.uid, {
+                date,
+                quantity,
+                pricePerLiter: price,
+                cost,
+                boiled,
+                status,
+                vendorName: 'Default',
+                recordedBy: user.displayName || user.email?.split('@')[0] || 'Unknown'
+            });
+            await fetchData(); // Refresh
+        } catch (error: any) {
+            console.error(error);
+            alert(error.message); // Basic error handling
+        }
+    };
+
+    const updateLog = async (id: string, date: string, quantity: number, price: number) => {
+        if (!user) return;
+        try {
+            validateDate(date);
+            const status = quantity > 0 ? 'bought' : 'skipped';
+            const cost = quantity * price;
+
+            await updateLogService(id, {
+                date,
+                quantity,
+                pricePerLiter: price,
+                cost,
+                status
+            });
+            await fetchData();
+        } catch (error: any) {
+            console.error(error);
+            alert(error.message);
+        }
+    };
+
+    const deleteLog = async (id: string) => {
+        if (!user) return;
+        try {
+            await deleteLogService(id);
+            await fetchData();
+        } catch (error) {
+            console.error(error);
+        }
     };
 
     const addPayment = async (amount: number, note?: string, date?: string) => {
@@ -127,6 +180,8 @@ export const useMilkData = () => {
             totalPaid
         },
         addLog,
+        updateLog,
+        deleteLog,
         addPayment,
         refresh: fetchData
     };

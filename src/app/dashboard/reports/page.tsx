@@ -16,7 +16,10 @@ import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 // Color palette for categories
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#A28CFF', '#FF6B6B', '#4CC9F0', '#F72585'];
 
+import { useAuth } from '@/context/AuthContext';
+
 export default function ReportsPage() {
+    const { user } = useAuth();
     const [loading, setLoading] = useState(true);
     const [dateRange, setDateRange] = useState<DateRange>('this-month');
 
@@ -30,8 +33,10 @@ export default function ReportsPage() {
     const [summary, setSummary] = useState({ income: 0, expense: 0, savings: 0, rate: 0 });
 
     useEffect(() => {
-        fetchData();
-    }, []);
+        if (user) {
+            fetchData();
+        }
+    }, [user]);
 
     useEffect(() => {
         processData();
@@ -41,8 +46,8 @@ export default function ReportsPage() {
         try {
             setLoading(true);
             const [fetchedExpenses, fetchedIncomes] = await Promise.all([
-                expenseService.getAllExpenses(),
-                incomeService.getAllIncomes()
+                expenseService.getAllExpenses(user?.uid),
+                incomeService.getAllIncomes(user?.uid)
             ]);
             setExpenses(fetchedExpenses);
             setIncomes(fetchedIncomes);

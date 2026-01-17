@@ -104,7 +104,7 @@ function ExpensesContent() {
     const fetchExpenses = async () => {
         if (!user) return;
         try {
-            const data = await expenseService.getAllExpenses();
+            const data = await expenseService.getAllExpenses(user.uid);
             // Filter deleted
             const activeExpenses = data.filter(e => !e.isDeleted);
 

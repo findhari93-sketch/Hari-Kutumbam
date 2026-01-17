@@ -87,14 +87,18 @@ export const expenseService = {
         }
     },
 
-    getAllExpenses: async () => {
-        // Fetch ALL expenses (for Admin/Family). 
-        // We might want to filter isDeleted in UI or here.
-        // Let's return all and let UI filter or separate "Deleted" lists if needed for audit.
+    getAllExpenses: async (userId?: string) => {
+        // Fetch expenses. If userId provided, filter by it.
+        // This is crucial for non-admin users due to Firestore Security Rules.
         try {
+            const constraints: any[] = [orderBy('date', 'desc')];
+            if (userId) {
+                constraints.push(where('userId', '==', userId));
+            }
+
             const q = query(
                 collection(db, COLLECTION_NAME),
-                orderBy('date', 'desc')
+                ...constraints
             );
             const snapshot = await getDocs(q);
             return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Expense[];
@@ -140,7 +144,10 @@ export const expenseService = {
             // Let's assume we delete all expenses in the collection or filtered by user?
             // "Clear everything from the DB" implies all expenses.
 
-            const q = query(collection(db, COLLECTION_NAME));
+            const q = query(
+                collection(db, COLLECTION_NAME),
+                where('userId', '==', user.uid)
+            );
             const snapshot = await getDocs(q);
 
             const batch = writeBatch(db);

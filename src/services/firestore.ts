@@ -206,3 +206,22 @@ export const getMilkPayments = async (userId: string) => {
         throw error;
     }
 };
+
+export const updateMilkLog = async (logId: string, data: Partial<MilkLog>) => {
+    try {
+        const docRef = doc(db, 'milk_logs', logId);
+        await updateDoc(docRef, { ...data, timestamp: Timestamp.now() });
+    } catch (error) {
+        console.error("Error updating milk log:", error);
+        throw error;
+    }
+};
+
+export const deleteMilkLog = async (logId: string) => {
+    try {
+        await deleteDoc(doc(db, 'milk_logs', logId));
+    } catch (error) {
+        console.error("Error deleting milk log:", error);
+        throw error;
+    }
+};

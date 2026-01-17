@@ -54,7 +54,7 @@ function IncomeContent() {
     const fetchIncomes = async () => {
         if (!user) return;
         try {
-            const data = await incomeService.getAllIncomes();
+            const data = await incomeService.getAllIncomes(user.uid);
             setIncomes(data.filter(i => !i.isDeleted));
         } catch (error) {
             console.error("Error fetching incomes:", error);

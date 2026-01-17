@@ -6,6 +6,7 @@ import {
     doc,
     getDocs,
     query,
+    where,
     Timestamp,
     orderBy,
     getDoc,
@@ -81,11 +82,16 @@ export const incomeService = {
         }
     },
 
-    getAllIncomes: async () => {
+    getAllIncomes: async (userId?: string) => {
         try {
+            const constraints: any[] = [orderBy('date', 'desc')];
+            if (userId) {
+                constraints.push(where('userId', '==', userId));
+            }
+
             const q = query(
                 collection(db, COLLECTION_NAME),
-                orderBy('date', 'desc')
+                ...constraints
             );
             const snapshot = await getDocs(q);
             return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Income[];

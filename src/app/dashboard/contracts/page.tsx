@@ -52,7 +52,7 @@ function ContractsContent() {
     const fetchContracts = async () => {
         if (!user) return;
         try {
-            const data = await contractService.getAllContracts();
+            const data = await contractService.getAllContracts(user.uid);
             setContracts(data.filter(c => !c.isDeleted));
         } catch (error) {
             console.error("Error fetching contracts:", error);

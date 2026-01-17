@@ -18,14 +18,18 @@ import { expenseService } from '@/services/expenseService';
 import { Expense } from '@/types';
 import { Timestamp } from 'firebase/firestore';
 
+import { useAuth } from '@/context/AuthContext';
+
 export default function RecentTransactionsList() {
+    const { user } = useAuth();
     const [transactions, setTransactions] = useState<Expense[]>([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         const fetchRecent = async () => {
+            if (!user) return;
             try {
-                const all = await expenseService.getAllExpenses();
+                const all = await expenseService.getAllExpenses(user.uid);
                 // Get top 5 recent
                 setTransactions(all.slice(0, 5));
             } catch (err) {
@@ -35,7 +39,7 @@ export default function RecentTransactionsList() {
             }
         };
         fetchRecent();
-    }, []);
+    }, [user]);
 
     if (loading) {
         return (
