@@ -15,16 +15,10 @@ import {
     InputAdornment,
     Container,
     CircularProgress,
-    ToggleButton,
-    ToggleButtonGroup,
-    Chip,
-    IconButton
+    Chip
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import SearchIcon from '@mui/icons-material/Search';
-import ViewListIcon from '@mui/icons-material/ViewList';
-import TableChartIcon from '@mui/icons-material/TableChart';
-import FilterListIcon from '@mui/icons-material/FilterList';
 
 import ExpenseTable from '@/components/expenses/ExpenseTable';
 import ExpenseForm from '@/components/expenses/ExpenseForm';
@@ -32,12 +26,12 @@ import ExpenseList from '@/components/expenses/ExpenseList';
 import ExpenseDetailModal from '@/components/expenses/ExpenseDetailModal';
 import DateRangeFilter from '@/components/expenses/DateRangeFilter';
 
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { Expense } from '@/types';
 import { expenseService } from '@/services/expenseService';
 import { useAuth } from '@/context/AuthContext';
 import { Timestamp } from 'firebase/firestore';
-import { isWithinInterval, startOfMonth, endOfMonth } from 'date-fns';
+import { isWithinInterval, endOfMonth } from 'date-fns';
 import { Range } from 'react-date-range';
 
 // Filter Chip Categories
@@ -213,7 +207,7 @@ function ExpensesContent() {
     const totalSpend = filteredExpenses.reduce((sum, e) => sum + e.amount, 0);
 
     return (
-        <Box sx={{ pb: 10, bgcolor: 'background.default', minHeight: '100vh' }}>
+        <Box sx={{ pb: 10, bgcolor: 'background.default', minHeight: '100vh', overflowX: 'hidden' }}>
             {/* Header Area */}
             <Paper
                 elevation={0}
@@ -222,43 +216,30 @@ function ExpensesContent() {
                     borderColor: 'divider',
                     position: 'sticky',
                     top: 0,
-                    zIndex: 10,
+                    zIndex: 20, // Higher than list headers
                     borderRadius: 0,
                     bgcolor: 'background.paper'
                 }}
             >
-                <Container maxWidth="lg" sx={{ px: 2, pt: 2, pb: 1.5 }}>
-
+                <Box sx={{ px: 2, pt: 2, pb: 0 }}>
                     {/* Top Row: Total & Actions */}
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
                         <Box>
                             <Typography variant="body2" color="text.secondary" fontWeight="500">
                                 Total Spent
                             </Typography>
-                            <Typography variant="h3" fontWeight="800" sx={{ letterSpacing: -1, mt: 0.5, bgClip: 'text', color: 'primary.main' }}>
+                            <Typography variant="h4" fontWeight="800" sx={{ letterSpacing: -0.5, mt: 0.5, color: 'primary.main' }}>
                                 ₹{totalSpend.toLocaleString()}
                             </Typography>
                         </Box>
 
                         <Stack direction="row" spacing={1}>
                             <DateRangeFilter dateRange={dateRange} onChange={setDateRange} />
-
-                            {/* View Mode Toggle - Only show if enough space/needed, simplified */}
-                            {/*  <ToggleButtonGroup
-                                value={viewMode}
-                                exclusive
-                                onChange={(_, v) => v && setViewMode(v)}
-                                size="small"
-                                sx={{ height: 32, display: { xs: 'none', sm: 'flex' } }} // Hide on mobile to save space if needed
-                            >
-                                <ToggleButton value="list"><ViewListIcon fontSize="small" /></ToggleButton>
-                                <ToggleButton value="table"><TableChartIcon fontSize="small" /></ToggleButton>
-                            </ToggleButtonGroup> */}
                         </Stack>
                     </Box>
 
-                    {/* Search & Filter Row */}
-                    <Stack direction="row" spacing={1.5} alignItems="center">
+                    {/* Search Bar */}
+                    <Box sx={{ mb: 2 }}>
                         <TextField
                             fullWidth
                             size="small"
@@ -280,69 +261,66 @@ function ExpensesContent() {
                                 }
                             }}
                             sx={{
-                                '& .MuiOutlinedInput-notchedOutline': { border: 'none' },
-                                flex: 2
+                                '& .MuiOutlinedInput-notchedOutline': { border: 'none' }
                             }}
                         />
+                    </Box>
+                </Box>
 
-                        {/* View Mode Toggle - Mobile integrated next to search or separate? keeping separate might be crowded. 
-                            Let's keep filter chips in next row for cleaner layout or scrollable row.
-                        */}
-                    </Stack>
-
-                    {/* Filter Chips - Scrollable Row */}
-                    <Stack
-                        direction="row"
-                        spacing={1}
-                        sx={{
-                            overflowX: 'auto',
-                            py: 1.5,
-                            mx: -2,
-                            px: 2,
-                            '::-webkit-scrollbar': { display: 'none' },
-                            scrollbarWidth: 'none',
-                            '& .MuiChip-root': {
-                                flexShrink: 0,
-                                fontWeight: 500,
-                            }
-                        }}
-                    >
-                        {FILTER_CATEGORIES.map(cat => (
-                            <Chip
-                                key={cat}
-                                label={cat}
-                                clickable
-                                size="medium"
-                                color={activeCategory === cat ? "primary" : "default"}
-                                variant={activeCategory === cat ? "filled" : "outlined"}
-                                onClick={() => setActiveCategory(cat)}
-                                sx={{
-                                    border: activeCategory !== cat ? '1px solid' : 'none',
-                                    borderColor: 'divider',
-                                    borderRadius: 2
-                                }}
-                            />
-                        ))}
-                    </Stack>
-                </Container>
+                {/* Filter Chips - Scrollable Row with full width bleeding */}
+                <Box
+                    sx={{
+                        display: 'flex',
+                        overflowX: 'auto',
+                        gap: 1,
+                        px: 2,
+                        pb: 2,
+                        // Hide scrollbar
+                        '::-webkit-scrollbar': { display: 'none' },
+                        scrollbarWidth: 'none',
+                        '& .MuiChip-root': {
+                            flexShrink: 0,
+                            fontWeight: 500,
+                        }
+                    }}
+                >
+                    {FILTER_CATEGORIES.map(cat => (
+                        <Chip
+                            key={cat}
+                            label={cat}
+                            clickable
+                            size="medium"
+                            color={activeCategory === cat ? "primary" : "default"}
+                            variant={activeCategory === cat ? "filled" : "outlined"}
+                            onClick={() => setActiveCategory(cat)}
+                            sx={{
+                                border: activeCategory !== cat ? '1px solid' : 'none',
+                                borderColor: 'divider',
+                                borderRadius: 2
+                            }}
+                        />
+                    ))}
+                </Box>
             </Paper>
 
             {/* Content Area */}
-            <Container maxWidth="lg" sx={{ px: { xs: 2, md: 3 }, py: 2 }}>
+            <Box sx={{ px: 0, py: 0 }}> {/* Remove padding for edge-to-edge feel on mobile, let list handle internal padding if needed */}
                 {viewMode === 'list' ? (
                     <ExpenseList
                         expenses={filteredExpenses}
                         onItemClick={handleListItemClick}
                     />
                 ) : (
-                    <ExpenseTable
-                        expenses={filteredExpenses}
-                        onEdit={handleEdit}
-                        onDelete={(id) => setDeleteConfirm({ open: true, type: 'single', ids: [id] })}
-                        onDeleteRows={(ids) => setDeleteConfirm({ open: true, type: 'multi', ids })}
-                    />
+                    <Container maxWidth="lg" sx={{ py: 2 }}>
+                        <ExpenseTable
+                            expenses={filteredExpenses}
+                            onEdit={handleEdit}
+                            onDelete={(id) => setDeleteConfirm({ open: true, type: 'single', ids: [id] })}
+                            onDeleteRows={(ids) => setDeleteConfirm({ open: true, type: 'multi', ids })}
+                        />
+                    </Container>
                 )}
-            </Container>
+            </Box>
 
             {/* FAB */}
             <Fab
@@ -351,7 +329,7 @@ function ExpensesContent() {
                 sx={{
                     position: 'fixed',
                     bottom: { xs: 80, md: 32 },
-                    right: { xs: 16, md: 32 },
+                    right: { xs: 20, md: 32 },
                     boxShadow: 4
                 }}
                 onClick={handleCreate}

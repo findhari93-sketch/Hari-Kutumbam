@@ -121,7 +121,7 @@ export default function DashboardPage() {
     }
 
     return (
-        <Box sx={{ pb: 8 }}>
+        <Box sx={{ pb: 8, p: { xs: 2, sm: 0 } }}>
             <Typography variant="h4" sx={{ mb: 4, fontWeight: 'bold' }}>
                 Financial Overview
             </Typography>

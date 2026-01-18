@@ -1,5 +1,5 @@
 'use client';
-import { Box, Paper, IconButton, Typography, Badge } from '@mui/material';
+import { Box, Paper, IconButton, Typography, Badge, Popover } from '@mui/material';
 import React, { useState } from 'react';
 import { DateRangePicker, Range, RangeKeyDict } from 'react-date-range';
 import 'react-date-range/dist/styles.css';
@@ -14,7 +14,17 @@ interface DateRangeFilterProps {
 }
 
 export default function DateRangeFilter({ dateRange, onChange }: DateRangeFilterProps) {
-    const [open, setOpen] = useState(false);
+    const [anchorEl, setAnchorEl] = useState<HTMLButtonElement | null>(null);
+
+    const handleClick = (event: React.MouseEvent<HTMLButtonElement>) => {
+        setAnchorEl(event.currentTarget);
+    };
+
+    const handleClose = () => {
+        setAnchorEl(null);
+    };
+
+    const open = Boolean(anchorEl);
 
     const handleSelect = (ranges: RangeKeyDict) => {
         onChange(ranges.selection);
@@ -51,37 +61,40 @@ export default function DateRangeFilter({ dateRange, onChange }: DateRangeFilter
 
     return (
         <>
-            <IconButton onClick={() => setOpen(!open)} color="primary">
-                <Badge variant="dot" color="secondary" invisible={!open}>
+            <IconButton onClick={handleClick} color="primary">
+                <Badge variant="dot" color="secondary" invisible={!dateRange.startDate}>
                     <CalendarMonthIcon />
                 </Badge>
             </IconButton>
 
-            {open && (
-                <Box sx={{
-                    position: 'absolute',
-                    top: '60px',
-                    right: '16px',
-                    zIndex: 1300,
-                    boxShadow: 3,
-                    borderRadius: 2,
-                    overflow: 'hidden',
-                    bgcolor: 'background.paper'
-                }}>
-                    <DateRangePicker
-                        ranges={[dateRange]}
-                        onChange={handleSelect}
-                        months={1}
-                        direction="vertical"
-                        scroll={{ enabled: true }}
-                        rangeColors={['#1976d2']} // Primary Color
-                        locale={enUS}
-                        staticRanges={staticRanges}
-                        inputRanges={[]}
-                    />
-                    {/* Additional Custom Toolbar could go here if using pure DateRange component */}
-                </Box>
-            )}
+            <Popover
+                open={open}
+                anchorEl={anchorEl}
+                onClose={handleClose}
+                anchorOrigin={{
+                    vertical: 'bottom',
+                    horizontal: 'right',
+                }}
+                transformOrigin={{
+                    vertical: 'top',
+                    horizontal: 'right',
+                }}
+                PaperProps={{
+                    sx: { borderRadius: 2, overflow: 'hidden' }
+                }}
+            >
+                <DateRangePicker
+                    ranges={[dateRange]}
+                    onChange={handleSelect}
+                    months={1}
+                    direction="vertical"
+                    scroll={{ enabled: true }}
+                    rangeColors={['#1976d2']} // Primary Color
+                    locale={enUS}
+                    staticRanges={staticRanges}
+                    inputRanges={[]}
+                />
+            </Popover>
         </>
     );
 }

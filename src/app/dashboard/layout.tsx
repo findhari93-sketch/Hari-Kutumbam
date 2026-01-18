@@ -46,10 +46,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 component="main"
                 sx={{
                     flexGrow: 1,
-                    p: 3,
+                    p: { xs: 0, sm: 3 }, // No padding on mobile for full-width control
                     width: { sm: `calc(100% - ${drawerWidth}px)` },
                     minHeight: '100vh',
                     bgcolor: 'background.default',
+                    overflowX: 'hidden' // Prevent horizontal scroll
                 }}
             >
                 <Toolbar /> {/* Spacer for fixed AppBar */}

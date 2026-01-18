@@ -3,7 +3,7 @@ import React, { useMemo } from 'react';
 import { Box, Typography, Stack, Divider } from '@mui/material';
 import { Expense } from '@/types';
 import CompactExpenseCard from './CompactExpenseCard';
-import { format, isSameYear } from 'date-fns';
+import { format } from 'date-fns';
 import { Timestamp } from 'firebase/firestore';
 
 interface ExpenseListProps {
@@ -54,13 +54,18 @@ export default function ExpenseList({ expenses, onItemClick }: ExpenseListProps)
                 return (
                     <Box key={group.key} sx={{ mb: 2 }}>
                         {/* Group Header - Sticky */}
+                        {/* Note: Top offset depends on the main header height. 
+                            If main header is ~180px, we set it there. 
+                            For now using a safe large value or disabling sticky if complex.
+                            Let's try 170px which is approx header height + topbar.
+                        */}
                         <Box sx={{
                             position: 'sticky',
-                            top: 130, // Adjust based on header height
+                            top: { xs: 170, md: 180 },
                             zIndex: 5,
                             bgcolor: 'background.default',
                             py: 1,
-                            px: 1,
+                            px: 2, // Match page padding
                             display: 'flex',
                             justifyContent: 'space-between',
                             alignItems: 'center',
@@ -81,8 +86,8 @@ export default function ExpenseList({ expenses, onItemClick }: ExpenseListProps)
                             </Typography>
                         </Box>
 
-                        {/* List Items - Direct list, no container box to save space/margins */}
-                        <Stack spacing={0}>
+                        {/* List Items */}
+                        <Stack spacing={0} sx={{ px: 2 }}> {/* Add padding here for items */}
                             {group.items.map((expense, index) => (
                                 <Box key={expense.id}>
                                     <CompactExpenseCard
@@ -90,7 +95,7 @@ export default function ExpenseList({ expenses, onItemClick }: ExpenseListProps)
                                         onClick={onItemClick}
                                     />
                                     {/* Divider between items, but not last one */}
-                                    {index < group.items.length - 1 && <Divider sx={{ my: 0, ml: 8, mr: 2, borderStyle: 'dashed' }} />}
+                                    {index < group.items.length - 1 && <Divider sx={{ my: 0, ml: 8, mr: 0, borderStyle: 'dashed' }} />}
                                 </Box>
                             ))}
                         </Stack>
