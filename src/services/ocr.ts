@@ -61,85 +61,110 @@ export const parseScreenshot = async (imageFile: File): Promise<ExtractedTransac
     }
 };
 
+
+const extractGPaySimpleData = (lines: string[]): Partial<ExtractedTransactionData> => {
+    const data: Partial<ExtractedTransactionData> = {};
+    const paidToIndex = lines.findIndex(line => line.trim().match(/^Paid to/i));
+
+    if (paidToIndex !== -1) {
+        // --- 1. Amount (Above "Paid to") ---
+        // Iterate backwards from "Paid to"
+        for (let i = paidToIndex - 1; i >= 0; i--) {
+            let line = lines[i].trim();
+            if (!line) continue;
+
+            // Fix commonly mistaken Rupee symbols: '2', '7', '?', 't' appearing before number
+            // e.g. "2 30.00" -> "30.00"
+            line = line.replace(/^[27?tT]\s+/, '');
+
+            // Match simple number (no symbol required for this specific screen type)
+            // e.g., "30.00"
+            const amountMatch = line.match(/^[\d,]+(\.\d{1,2})?$/);
+            if (amountMatch) {
+                data.amount = amountMatch[0].replace(/,/g, '');
+                break;
+            }
+        }
+
+        // --- 2. Payee (After "Paid to") ---
+        if (paidToIndex + 1 < lines.length) {
+            const payeeLine = lines[paidToIndex + 1].trim();
+            // Avoid extracting "Banking name:" as payee if it appears immediately
+            if (payeeLine && !payeeLine.toLowerCase().startsWith('banking name')) {
+                data.receiverName = payeeLine;
+                data.description = `Paid to ${payeeLine}`;
+            }
+        }
+
+        // --- 3. Bank Name ---
+        const bankLine = lines.find(l => l.toLowerCase().includes('banking name:'));
+        if (bankLine) {
+            const match = bankLine.match(/Banking name:\s*(.+)/i);
+            if (match) data.bankName = match[1];
+        }
+    }
+    return data;
+};
+
 const extractDataFromText = (text: string): ExtractedTransactionData => {
-    const data: ExtractedTransactionData = {
-        paymentMode: 'Cash' // Default, will switch if we find UPI signals
+    // Split into lines for structural analysis
+    const lines = text.split('\n').map(l => l.trim()).filter(l => l);
+
+    // Default Data
+    let data: ExtractedTransactionData = {
+        paymentMode: 'Cash'
     };
 
-    // --- 1. Amount ---
-    // Strategy:
-    // 1. Look for currency symbol prefix (₹, Rs, INR).
-    //    OCR often misreads ₹ as '?', 'F', 't', or other symbols. 
-    //    We allow a loose check for "symbol-like" char before valid number.
-    // 2. Fallback: Look for any number with a COMMA (e.g. 3,800). 
-    //    Phone numbers/IDs usually don't have commas.
+    // --- STRATEGY 1: Structured "Paid to" Layout (Simple GPay) ---
+    const simpleData = extractGPaySimpleData(lines);
+    if (simpleData.amount) {
+        data = { ...data, ...simpleData, paymentMode: 'UPI' };
+    }
 
-    // Attempt 1: Strict/Loose Currency Pattern
-    // Matches: ₹3,800 or ₹ 3,800 or 3800.00 (if preceded by symbol)
-    // Updated to match dot optionally for whole numbers
-    // Also handling common OCR misinterpretations of ₹ like '7', '?', 'T', 't', 'F' if they appear in a "price position"
-    // But we must be careful not to match random text. 
-    // We will look for symbol OR "start of line" + number if it looks like a receipt.
+    // --- STRATEGY 2: Classical Regex Search (Backup / Augment) ---
 
-    const currencyRegex = /(?:₹|Rs\.?|INR|[\u20B9\u20A8]|(?<=^|\n)\s*[tT7?F]\.?\s*)([\d,]+(?:\.\d{0,2})?)/i;
-    let amountMatch = text.match(currencyRegex);
-
-    if (amountMatch) {
-        data.amount = amountMatch[1].replace(/,/g, '');
-    } else {
-        // Attempt 2: Numbers with commas (e.g. "3,800")
-        const commaNumberRegex = /(^|\s)([\d]{1,3}(?:,[\d]{3})+(?:\.\d{2})?)(\s|$)/;
-        amountMatch = text.match(commaNumberRegex);
+    // A. Amount (If not found yet)
+    if (!data.amount) {
+        const currencyRegex = /(?:₹|Rs\.?|INR|[\u20B9\u20A8]|(?<=^|\n)\s*[tT7?F]\.?\s*)([\d,]+(?:\.\d{0,2})?)/i;
+        const amountMatch = text.match(currencyRegex);
         if (amountMatch) {
-            data.amount = amountMatch[2].replace(/,/g, '');
+            data.amount = amountMatch[1].replace(/,/g, '');
         } else {
-            // Attempt 3: Isolated Big(ish) number or GPay specific layout
-            // Often Tesseract merges lines, e.g. "To Name 15 eos..."
+            const commaNumberRegex = /(^|\s)([\d]{1,3}(?:,[\d]{3})+(?:\.\d{2})?)(\s|$)/;
+            const match = text.match(commaNumberRegex);
+            if (match) data.amount = match[2].replace(/,/g, '');
+        }
 
-            // Check for "To <Name> <Amount>" pattern
-            // We look for "To" followed by text, then a number.
-            const toAmountMatch = text.match(/To\s+.+?\s+(\d{1,7}(?:\.\d{2})?)\b/i);
-
-            // Heuristic: If we found "Completed" or "Paid to"
-            if (text.match(/(Completed|Paid to)/i)) {
-                // 1. Try "To ... Amount"
-                if (toAmountMatch) {
-                    // Check if this number is NOT a year (like 2025)
-                    // If it's a year, it's usually 4 digits. Small amounts < 1000 won't be years.
-                    const val = parseFloat(toAmountMatch[1]);
-                    const isYear = val > 1900 && val < 2100 && toAmountMatch[1].length === 4;
-
-                    if (!isYear) {
-                        data.amount = toAmountMatch[1];
-                    }
-                }
-
-                // 2. If still no amount, look for any standalone number on a line (approx)
-                if (!data.amount) {
-                    const simpleNumberMatch = text.match(/(^|\n)\s*[^\d]*(\d{1,7}(\.\d{2})?)[^\d]*($|\n)/);
-                    if (simpleNumberMatch) {
-                        // Verify it's not the year 2025 or time 8:25
-                        // This is risky, but better than nothing for "15"
-                        data.amount = simpleNumberMatch[2];
-                    }
-                }
+        // Attempt 3: Multiline "To ... Amount" (for Detailed GPay)
+        if (!data.amount) {
+            const toAmountMatch = text.match(/To\s+[^\n]+\s*\n\s*(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)\b/i);
+            if (toAmountMatch) {
+                const valStr = toAmountMatch[1].replace(/,/g, '');
+                const val = parseFloat(valStr);
+                // Safety: Year check. Commas imply currency usually.
+                const isYear = val > 1900 && val < 2100 && !toAmountMatch[1].includes(',');
+                if (!isYear) data.amount = valStr;
             }
         }
     }
 
-    // --- 2. Date & Time ---
-    // "15 Dec 2025, 6:01 pm"
-    // Regex for: DD MMM YYYY, H:MM am/pm
-    const dateTimeRegex = /(\d{1,2}\s+[A-Za-z]{3}\s+\d{4}),?\s+(\d{1,2}:\d{2}\s*[ap]m)/i;
+    // B. Date & Time
+    // Updated Regex to handle missing colon: "617 pm"
+    const dateTimeRegex = /(\d{1,2}\s+[A-Za-z]{3}\s+\d{4}),?\s+(\d{1,2}:?\d{2}\s*[ap]m)/i;
     const dateMatch = text.match(dateTimeRegex);
+
     if (dateMatch) {
-        const dateStr = `${dateMatch[1]} ${dateMatch[2]}`;
+        let timeStr = dateMatch[2];
+        // Insert colon if missing
+        if (!timeStr.includes(':')) {
+            timeStr = timeStr.replace(/(\d+)(\d{2}\s*[ap]m)/i, '$1:$2');
+        }
+        const dateStr = `${dateMatch[1]} ${timeStr}`;
         const dateObj = new Date(dateStr);
         if (!isNaN(dateObj.getTime())) {
-            data.date = dateObj.toISOString(); // Full ISO for timestamp
+            data.date = dateObj.toISOString();
         }
-    } else {
-        // Fallback to just Date
+    } else if (!data.date) {
         const dateOnlyRegex = /(\d{1,2}\s+[A-Za-z]{3}\s+\d{4})/;
         const dMatch = text.match(dateOnlyRegex);
         if (dMatch) {
@@ -148,102 +173,38 @@ const extractDataFromText = (text: string): ExtractedTransactionData => {
         }
     }
 
-    // --- 3. Description (Heuristic) ---
-    // Look for text usually below the Amount but above "Completed"
-    // GPay Style: Amount -> [Pill with Text] -> "Pay again" / "Completed"
-
-    // Strategy: Find strings between Amount match and "Completed" / "Pay again"
-    // We rely on the fact that we might have found the Amount string earlier.
-
-    // Regex to find "salary ku" or similar short text
-    // It is often surrounded by newlines or just floating there.
-
-    // Try to find the amount in the text again to get its position (index)
-    // Then look ahead until "Completed" or "Pay again" or "UPI transaction ID"
-
-    // Simplified Regex for the specific user case:
-    // Amount (with symbol) \n Description \n Pay again
-    const gpayDescRegex = /[₹0-9,.]+\s*\n\s*([A-Za-z0-9 ]+)\s*\n\s*(Pay again|Completed)/i;
-    const gpayMatch = text.match(gpayDescRegex);
-
-    if (gpayMatch) {
-        data.description = gpayMatch[1].trim();
-    } else {
-        // Fallback: finding "Completed" and looking backwards?
-        // Or using the old heuristics
-        const descRegex = /([A-Za-z0-9 ]+)\n+Completed/i;
-        const descMatch = text.match(descRegex);
-        if (descMatch) {
-            // Avoid capturing "Pay again" as description
-            const candidate = descMatch[1].trim();
-            if (!candidate.toLowerCase().includes('pay again')) {
-                data.description = candidate;
-            }
-        } else if (text.includes("Paid to")) {
-            // Fallback: "Paid to X"
-            const paidToMatch = text.match(/Paid to\s+(.+)/i);
-            if (paidToMatch) data.description = `Paid to ${paidToMatch[1]}`;
-        }
-    }
-
-    // --- 4. IDs (UPI / Google) ---
+    // C. IDs & Additional Info (augmenting simple data if needed)
     const upiTxnIdRegex = /UPI transaction ID\s*(\d+)/i;
     const gPayTxnIdRegex = /Google transaction ID\s*([A-Za-z0-9]+)/i;
 
-    const upiMatch = text.match(upiTxnIdRegex);
-    const gPayMatch = text.match(gPayTxnIdRegex);
-
-    if (upiMatch) {
-        data.transactionId = upiMatch[1];
-        data.paymentMode = 'UPI'; // Found UPI ID -> Switch mode
+    if (!data.transactionId) {
+        const match = text.match(upiTxnIdRegex);
+        if (match) {
+            data.transactionId = match[1];
+            data.paymentMode = 'UPI';
+        }
     }
-    if (gPayMatch) {
-        data.googleTransactionId = gPayMatch[1];
-        data.paymentMode = 'UPI'; // Found GPay ID -> Switch mode
-    }
-
-    // --- 5. Sender / Receiver ---
-    // "To: HARIBABU MANOHARAN"
-    // "From: AJITHKUMAR S"
-    const toRegex = /To:?\s*(.+)/i;
-    const fromRegex = /From:?\s*(.+)/i;
-
-    const toMatch = text.match(toRegex);
-    const fromMatch = text.match(fromRegex);
-
-    if (toMatch) {
-        // Extract Name and possible UPI ID if on next line
-        // GPay: "To: NAME \n Google Pay . name@bank"
-        data.receiverName = toMatch[1].trim();
-
-        // Try to find UPI ID nearby? (Simpler: Just regex for any email-like string)
-        // This is generic scanning for UPI IDs in the whole text might be safer for now
-    }
-    if (fromMatch) {
-        data.senderName = fromMatch[1].trim();
+    if (!data.googleTransactionId) {
+        const match = text.match(gPayTxnIdRegex);
+        if (match) {
+            data.googleTransactionId = match[1];
+            data.paymentMode = 'UPI';
+        }
     }
 
-    // Find UPI IDs (roughly email format ending in @bank)
-    const upiIdRegex = /[a-zA-Z0-9._]+@[a-zA-Z]+/g;
-    const upiIds = text.match(upiIdRegex);
-
-    if (upiIds && upiIds.length >= 2) {
-        // heuristic: 1st is usually Receiver (near "To"), 2nd is Sender (near "From")
-        // But verifying position is hard in just text.
-        // Let's assign based on previous To/From proximity if possible, or just guess.
-
-        // For now, let's just attempt to map if we found names
-        if (data.receiverName && !data.receiverUpiId) data.receiverUpiId = upiIds[0];
-        if (data.senderName && !data.senderUpiId) data.senderUpiId = upiIds[1];
+    // D. Description/Receiver (If not set by Simple Strategy)
+    if (!data.receiverName) {
+        const toMatch = text.match(/To:?\s*(.+)/i);
+        if (toMatch) {
+            data.receiverName = toMatch[1].trim();
+            if (!data.description) data.description = `Paid to ${data.receiverName}`;
+        }
     }
 
-    // --- 6. Bank Name ---
-    // "State Bank of India 2117"
-    const bankRegex = /([A-Za-z ]+Bank[A-Za-z ]*)\s+\d{4}/i;
-    const bankMatch = text.match(bankRegex);
-    if (bankMatch) {
-        data.bankName = bankMatch[1].trim();
-        data.paymentMode = 'UPI';
+    // E. Bank Name (If not set)
+    if (!data.bankName) {
+        const bankMatch = text.match(/([A-Za-z ]+Bank[A-Za-z ]*)\s+\d{4}/i);
+        if (bankMatch) data.bankName = bankMatch[1].trim();
     }
 
     return data;

@@ -15,27 +15,36 @@ import {
     InputAdornment,
     Container,
     CircularProgress,
-    Chip
+    Chip,
+    Drawer,
+    IconButton,
+    Grid,
+    Divider,
+    useTheme,
+    useMediaQuery
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import SearchIcon from '@mui/icons-material/Search';
+import CloseIcon from '@mui/icons-material/Close';
+import TuneIcon from '@mui/icons-material/Tune';
 
 import ExpenseTable from '@/components/expenses/ExpenseTable';
 import ExpenseForm from '@/components/expenses/ExpenseForm';
 import ExpenseList from '@/components/expenses/ExpenseList';
 import ExpenseDetailModal from '@/components/expenses/ExpenseDetailModal';
-import DateRangeFilter from '@/components/expenses/DateRangeFilter';
+import BottomDateFilter from '@/components/expenses/BottomDateFilter';
 
 import { useSearchParams } from 'next/navigation';
-import { Expense } from '@/types';
+import { Expense, Income } from '@/types';
 import { expenseService } from '@/services/expenseService';
+import { incomeService } from '@/services/incomeService';
 import { useAuth } from '@/context/AuthContext';
 import { Timestamp } from 'firebase/firestore';
 import { isWithinInterval, endOfMonth } from 'date-fns';
 import { Range } from 'react-date-range';
 
 // Filter Chip Categories
-const FILTER_CATEGORIES = ['All', 'Food', 'Milk', 'Transport', 'Utilities', 'Family', 'Medical', 'Shopping', 'Entertainment'];
+const FILTER_CATEGORIES = ['All', 'Food', 'Milk', 'Transport', 'Utilities', 'Family', 'Medical', 'Shopping', 'Entertainment', 'Maintenance', 'Education'];
 
 export default function ExpensesPage() {
     return (
@@ -48,25 +57,32 @@ export default function ExpensesPage() {
 function ExpensesContent() {
     const { user } = useAuth();
     const [expenses, setExpenses] = useState<Expense[]>([]);
+    const [incomes, setIncomes] = useState<Income[]>([]);
     const [filteredExpenses, setFilteredExpenses] = useState<Expense[]>([]);
     const [viewMode, setViewMode] = useState<'list' | 'table'>('list');
 
     // Search & Filter State
     const [searchTerm, setSearchTerm] = useState('');
     const [activeCategory, setActiveCategory] = useState('All');
+    const [searchOpen, setSearchOpen] = useState(false);
+    const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
 
     // Date Range State
+    // Default to Last 30 Days (standard useful view) or All Time?
+    // User screenshot `uploaded_image_0` shows "Week 2... Week 1" which implies recent.
+    // Let's default to '30D' for a focused view, or '12W' per screenshot.
+    const [activeDatePreset, setActiveDatePreset] = useState<string>('30D');
     const [dateRange, setDateRange] = useState<Range>({
-        startDate: new Date(2020, 0, 1),
-        endDate: endOfMonth(new Date()),
+        startDate: new Date(), // Placeholder, updated in effect
+        endDate: new Date(),
         key: 'selection'
     });
 
     // Modal State
-    const [openModal, setOpenModal] = useState(false); // For Add/Edit Form
-    const [openDetailModal, setOpenDetailModal] = useState(false); // For View Detail
+    const [openModal, setOpenModal] = useState(false);
+    const [openDetailModal, setOpenDetailModal] = useState(false);
     const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
-    const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null); // For Detail View
+    const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
 
     // Delete Confirmation State
     const [deleteConfirm, setDeleteConfirm] = useState<{ open: boolean; type: 'single' | 'multi'; ids: string[] }>({
@@ -75,8 +91,27 @@ function ExpensesContent() {
         ids: []
     });
 
+    const theme = useTheme();
+    const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+
+    const handleDatePreset = (days: number, presetCode: string) => {
+        const end = new Date();
+        const start = new Date();
+        start.setDate(end.getDate() - days);
+        setDateRange({ startDate: start, endDate: end, key: 'selection' });
+        setActiveDatePreset(presetCode);
+        setFilterDrawerOpen(false); // Close drawer after selection
+    };
+
+    // Initialize default filter
     useEffect(() => {
-        fetchExpenses();
+        const start = new Date();
+        start.setDate(start.getDate() - 30);
+        setDateRange({ startDate: start, endDate: new Date(), key: 'selection' });
+    }, []);
+
+    useEffect(() => {
+        fetchData();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [user]);
 
@@ -95,24 +130,31 @@ function ExpensesContent() {
         }
     }, [searchParams]);
 
-    const fetchExpenses = async () => {
+    const fetchData = async () => {
         if (!user) return;
         try {
-            const data = await expenseService.getAllExpenses(user.uid);
-            // Filter deleted
-            const activeExpenses = data.filter(e => !e.isDeleted);
+            const [expenseList, incomeList] = await Promise.all([
+                expenseService.getAllExpenses(user.uid),
+                incomeService.getAllIncomes(user.uid)
+            ]);
 
-            // Data mapping dates
-            const mapped = activeExpenses.map(e => ({
+            const activeExpenses = expenseList.filter(e => !e.isDeleted);
+
+            const mappedExpenses = activeExpenses.map(e => ({
                 ...e,
                 date: e.date instanceof Timestamp ? e.date.toDate() : new Date(e.date)
             }));
-            // Sort by date desc
-            mapped.sort((a, b) => (b.date as Date).getTime() - (a.date as Date).getTime());
+            mappedExpenses.sort((a, b) => (b.date as Date).getTime() - (a.date as Date).getTime());
 
-            setExpenses(mapped);
+            const mappedIncomes = incomeList.map(i => ({
+                ...i,
+                date: i.date instanceof Timestamp ? i.date.toDate() : new Date(i.date)
+            }));
+
+            setExpenses(mappedExpenses);
+            setIncomes(mappedIncomes);
         } catch (error) {
-            console.error("Failed to load expenses", error);
+            console.error("Failed to load data", error);
         }
     };
 
@@ -130,7 +172,7 @@ function ExpensesContent() {
             });
         }
 
-        // 2. Category Filter (Chip)
+        // 2. Category Filter
         if (activeCategory !== 'All') {
             result = result.filter(e => e.category === activeCategory);
         }
@@ -167,7 +209,7 @@ function ExpensesContent() {
             }
             setOpenModal(false);
             setEditingExpense(null);
-            fetchExpenses();
+            fetchData();
         } catch (error) {
             console.error("Save error", error);
         }
@@ -181,9 +223,9 @@ function ExpensesContent() {
             } else if (deleteConfirm.type === 'multi') {
                 await expenseService.deleteExpenses(deleteConfirm.ids, user);
             }
-            fetchExpenses();
+            fetchData();
             setDeleteConfirm({ ...deleteConfirm, open: false });
-            setOpenDetailModal(false); // Close detail if deleting from there
+            setOpenDetailModal(false);
         } catch (error) {
             console.error("Delete error", error);
         }
@@ -206,6 +248,17 @@ function ExpensesContent() {
 
     const totalSpend = filteredExpenses.reduce((sum, e) => sum + e.amount, 0);
 
+    const getPresetLabel = (preset: string) => {
+        const map: Record<string, string> = {
+            '7D': 'Last 7 Days',
+            '30D': 'Last 30 Days',
+            '12W': 'Last 12 Weeks',
+            '6M': 'Last 6 Months',
+            '1Y': 'Last 1 Year'
+        };
+        return map[preset] || 'Custom';
+    };
+
     return (
         <Box sx={{ pb: 10, bgcolor: 'background.default', minHeight: '100vh', overflowX: 'hidden' }}>
             {/* Header Area */}
@@ -216,72 +269,67 @@ function ExpensesContent() {
                     borderColor: 'divider',
                     position: 'sticky',
                     top: 0,
-                    zIndex: 20, // Higher than list headers
+                    zIndex: 20,
                     borderRadius: 0,
                     bgcolor: 'background.paper'
                 }}
             >
-                <Box sx={{ px: 2, pt: 2, pb: 0 }}>
-                    {/* Top Row: Total & Actions */}
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
-                        <Box>
-                            <Typography variant="body2" color="text.secondary" fontWeight="500">
-                                Total Spent
-                            </Typography>
-                            <Typography variant="h4" fontWeight="800" sx={{ letterSpacing: -0.5, mt: 0.5, color: 'primary.main' }}>
-                                ₹{totalSpend.toLocaleString()}
-                            </Typography>
+                <Box sx={{ px: 2, py: 1.5 }}>
+                    {/* Collapsible Search Row */}
+                    {!searchOpen ? (
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <Box>
+                                <Typography variant="caption" color="text.secondary" fontWeight="700" sx={{ textTransform: 'uppercase', letterSpacing: 0.5, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                    Total Spent
+                                    {activeDatePreset && (
+                                        <Box component="span" sx={{ px: 1, py: 0.25, bgcolor: 'primary.light', color: 'primary.contrastText', borderRadius: 4, fontSize: '0.65rem' }}>
+                                            {getPresetLabel(activeDatePreset)}
+                                        </Box>
+                                    )}
+                                </Typography>
+                                <Typography variant="h5" fontWeight="800" sx={{ color: 'primary.main', lineHeight: 1.1, mt: 0.5 }}>
+                                    ₹{totalSpend.toLocaleString()}
+                                </Typography>
+                            </Box>
+                            <Box sx={{ display: 'flex', gap: 1 }}>
+                                <IconButton onClick={() => setSearchOpen(true)} size="small" sx={{ color: 'text.secondary' }}>
+                                    <SearchIcon />
+                                </IconButton>
+                            </Box>
                         </Box>
-
-                        <Stack direction="row" spacing={1}>
-                            <DateRangeFilter dateRange={dateRange} onChange={setDateRange} />
-                        </Stack>
-                    </Box>
-
-                    {/* Search Bar */}
-                    <Box sx={{ mb: 2 }}>
-                        <TextField
-                            fullWidth
-                            size="small"
-                            placeholder="Search..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            InputProps={{
-                                startAdornment: (
-                                    <InputAdornment position="start">
-                                        <SearchIcon fontSize="small" color="action" />
-                                    </InputAdornment>
-                                ),
-                                sx: {
-                                    borderRadius: 3,
-                                    bgcolor: 'action.hover',
-                                    border: 'none',
-                                    fontSize: '0.875rem',
-                                    height: 40
-                                }
-                            }}
-                            sx={{
-                                '& .MuiOutlinedInput-notchedOutline': { border: 'none' }
-                            }}
-                        />
-                    </Box>
+                    ) : (
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <TextField
+                                fullWidth
+                                autoFocus
+                                size="small"
+                                placeholder="Search expenses..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                InputProps={{
+                                    startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment>,
+                                    sx: { borderRadius: 3, bgcolor: 'action.hover', border: 'none' }
+                                }}
+                                sx={{ '& .MuiOutlinedInput-notchedOutline': { border: 'none' } }}
+                            />
+                            <IconButton onClick={() => { setSearchOpen(false); setSearchTerm(''); }} size="small">
+                                <CloseIcon />
+                            </IconButton>
+                        </Box>
+                    )}
                 </Box>
 
-                {/* Filter Chips - Scrollable Row with full width bleeding */}
+                {/* Filter Chips */}
                 <Box
                     sx={{
                         display: 'flex',
                         overflowX: 'auto',
                         gap: 1,
                         px: 2,
-                        pb: 2,
-                        // Hide scrollbar
+                        pb: 1.5,
                         '::-webkit-scrollbar': { display: 'none' },
                         scrollbarWidth: 'none',
-                        '& .MuiChip-root': {
-                            flexShrink: 0,
-                            fontWeight: 500,
-                        }
+                        '& .MuiChip-root': { flexShrink: 0, fontWeight: 500 }
                     }}
                 >
                     {FILTER_CATEGORIES.map(cat => (
@@ -289,25 +337,36 @@ function ExpensesContent() {
                             key={cat}
                             label={cat}
                             clickable
-                            size="medium"
+                            size="small"
                             color={activeCategory === cat ? "primary" : "default"}
                             variant={activeCategory === cat ? "filled" : "outlined"}
                             onClick={() => setActiveCategory(cat)}
                             sx={{
                                 border: activeCategory !== cat ? '1px solid' : 'none',
                                 borderColor: 'divider',
-                                borderRadius: 2
+                                borderRadius: 1.5
                             }}
                         />
                     ))}
                 </Box>
             </Paper>
 
+            {/* Bottom Date Filter (Fixed Bar) */}
+            <BottomDateFilter
+                currentPreset={activeDatePreset}
+                onSelectPreset={(preset) => {
+                    const daysMap: Record<string, number> = { '7D': 7, '30D': 30, '12W': 84, '6M': 180, '1Y': 365 };
+                    if (daysMap[preset]) handleDatePreset(daysMap[preset], preset);
+                }}
+            />
+
+
             {/* Content Area */}
-            <Box sx={{ px: 0, py: 0 }}> {/* Remove padding for edge-to-edge feel on mobile, let list handle internal padding if needed */}
+            <Box sx={{ p: 0 }}>
                 {viewMode === 'list' ? (
                     <ExpenseList
                         expenses={filteredExpenses}
+                        incomes={incomes}
                         onItemClick={handleListItemClick}
                     />
                 ) : (
@@ -379,6 +438,6 @@ function ExpensesContent() {
                     <Button onClick={confirmDelete} color="error" variant="contained">Delete</Button>
                 </DialogActions>
             </Dialog>
-        </Box>
+        </Box >
     );
 }

@@ -38,16 +38,13 @@ const getIcon = (category: string) => {
 
 interface CompactExpenseCardProps {
     expense: Expense;
+    categoryColor?: string; // New Prop
     onClick: (expense: Expense) => void;
 }
 
-export default function CompactExpenseCard({ expense, onClick }: CompactExpenseCardProps) {
+export default function CompactExpenseCard({ expense, categoryColor, onClick }: CompactExpenseCardProps) {
     const dateObj = expense.date instanceof Timestamp ? expense.date.toDate() : new Date(expense.date);
-    const isFailed = false; // expense.status check removed as it doesn't exist on type
-
-    // Check if it's income or expense based on amount (legacy logic) or category type? 
-    // Usually expense amount is positive in this app. 
-    // We will assume standard expense.
+    const isFailed = false;
 
     return (
         <Box
@@ -66,15 +63,15 @@ export default function CompactExpenseCard({ expense, onClick }: CompactExpenseC
         >
             {/* Avatar / Icon */}
             <Avatar
-                variant="rounded" // or circular, keeping rounded from before
+                variant="rounded"
                 sx={{
-                    bgcolor: isFailed ? 'error.light' : 'background.paper', // Use paper for contrast if list is on gray
-                    color: isFailed ? 'error.main' : 'primary.main',
+                    bgcolor: isFailed ? 'error.light' : (categoryColor || 'background.paper'), // Use prop color
+                    color: isFailed ? 'error.main' : (categoryColor ? 'common.white' : 'primary.main'), // White icon on color
                     width: 42,
                     height: 42,
                     mr: 2,
-                    borderRadius: 3, // slightly softer
-                    boxShadow: 1 // subtle pop
+                    borderRadius: 3,
+                    boxShadow: categoryColor ? 2 : 1
                 }}
             >
                 {getIcon(expense.category)}
