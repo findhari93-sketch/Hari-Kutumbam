@@ -111,10 +111,8 @@ const extractGPaySimpleData = (lines: string[]): Partial<ExtractedTransactionDat
 
 const extractDescriptionFromContext = (lines: string[], data: Partial<ExtractedTransactionData>): string | undefined => {
     // Strategy: Look for text between Amount and "Pay again" or "Completed"
-    // The amount is usually close to the top or extracted previously.
-    // If we have an amount, we can try to find where it is in the lines (fuzzy match)
 
-    // Simplification: Look for "Pay again" or "Completed"
+    // Simplification: Look for bottom markers
     const bottomMarkerIndex = lines.findIndex(l =>
         l.toLowerCase() === 'pay again' ||
         l.toLowerCase() === 'completed' ||
@@ -122,38 +120,40 @@ const extractDescriptionFromContext = (lines: string[], data: Partial<ExtractedT
     );
 
     if (bottomMarkerIndex > 0) {
-        // The description is usually immediately above "Pay again" or "Completed"
-        // But we must skip the Amount if it's there.
+        // Search upwards from bottom marker
+        // We look for the first "likely text" line that isn't date/id/amount
 
         let candidateIndex = bottomMarkerIndex - 1;
         while (candidateIndex >= 0) {
-            const line = lines[candidateIndex];
+            let line = lines[candidateIndex];
 
-            // Skip empty lines
+            // Clean noise
+            line = line.trim();
+
+            // Skip empty
             if (!line) {
                 candidateIndex--;
                 continue;
             }
 
-            // Skip Date/Time lines
+            // Skip Date/Time
             if (line.match(/\d{1,2}\s+[A-Za-z]{3}/) || line.match(/\d{1,2}:\d{2}/)) {
                 candidateIndex--;
                 continue;
             }
 
-            // Skip Amount lines (rough check)
-            if (line.match(/[₹\d,]+\.?\d*/)) {
-                // If it looks like just a number/currency, skip it
+            // Skip clear Amounts (₹115, 30.00)
+            if (line.match(/^[₹Rs\d\., ]+$/) || line.match(/[₹Rs][\d\., ]+/i)) {
                 candidateIndex--;
                 continue;
             }
 
-            // If we reached "Paid to" or "To", stop
-            if (line.startsWith('Paid to') || line.startsWith('To')) {
+            // Skip "Paid to" or "To" lines
+            if (line.match(/^(Paid to|To)/i)) {
                 break;
             }
 
-            // Found a candidate text line!
+            // If we found a candidate, return it
             return line;
         }
     }
@@ -175,50 +175,54 @@ const extractDataFromText = (text: string): ExtractedTransactionData => {
         data = { ...data, ...simpleData, paymentMode: 'UPI' };
     }
 
+    // --- STRATEGY 2: Line-by-Line Analysis (Robust Fallback) ---
+
+    // A. Robust Amount Extraction
+    if (!data.amount) {
+        // Iterate lines to find the most likely amount line
+        // We look for lines that are primarily numbers, potentially with currency symbols
+        // e.g. "₹115", "115.00", "₹ 33,000"
+
+        for (const line of lines) {
+            // Regex to match strictly: Optional Currency Symbol + Number
+            // We ignore lines with too much text to avoid picking up IDs or descriptions with numbers
+
+            // 1. Check for Currency Symbol + Amount (e.g. ₹115)
+            // [\u20B9\u20A8] are unicode for ₹ and Rs
+            const currencyMatch = line.match(/^(?:₹|Rs\.?|INR|[\u20B9\u20A8])\s*([\d,]+(?:\.\d{0,2})?)$/i);
+            if (currencyMatch) {
+                data.amount = currencyMatch[1].replace(/,/g, '');
+                break;
+            }
+
+            // 2. Check for "Common Typo" Symbol + Amount (e.g. | 115, ? 115) - typical OCR artifacts
+            const artifactMatch = line.match(/^([|!?tT7])\s*([\d,]+(?:\.\d{0,2})?)$/);
+            if (artifactMatch) {
+                data.amount = artifactMatch[2].replace(/,/g, '');
+                break;
+            }
+        }
+
+        // If still no amount, try looser regex on the whole text
+        if (!data.amount) {
+            const fallbackRegex = /(?:₹|Rs\.?|INR|[\u20B9\u20A8])\s*([\d,]+(?:\.\d{0,2})?)/i;
+            const m = text.match(fallbackRegex);
+            if (m) data.amount = m[1].replace(/,/g, '');
+        }
+    }
+
     // Attempt to extract description (notes) if not just "Paid to..."
-    // We do this after simpleData to see if we can perform better than the default "Paid to X"
     const specificDesc = extractDescriptionFromContext(lines, data);
     if (specificDesc) {
         data.description = specificDesc;
     }
 
-
-    // --- STRATEGY 2: Classical Regex Search (Backup / Augment) ---
-
-    // A. Amount (If not found yet)
-    if (!data.amount) {
-        // Added space handling after symbol: \s*
-        const currencyRegex = /(?:₹|Rs\.?|INR|[\u20B9\u20A8]|(?<=^|\n)\s*[tT7?F]\.?\s*)([\d,]+(?:\.\d{0,2})?)/i;
-        const amountMatch = text.match(currencyRegex);
-        if (amountMatch) {
-            data.amount = amountMatch[1].replace(/,/g, '');
-        } else {
-            const commaNumberRegex = /(^|\s)([\d]{1,3}(?:,[\d]{3})+(?:\.\d{2})?)(\s|$)/;
-            const match = text.match(commaNumberRegex);
-            if (match) data.amount = match[2].replace(/,/g, '');
-        }
-
-        // Attempt 3: Multiline "To ... Amount" (for Detailed GPay)
-        if (!data.amount) {
-            const toAmountMatch = text.match(/To\s+[^\n]+\s*\n\s*(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)\b/i);
-            if (toAmountMatch) {
-                const valStr = toAmountMatch[1].replace(/,/g, '');
-                const val = parseFloat(valStr);
-                // Safety: Year check. Commas imply currency usually.
-                const isYear = val > 1900 && val < 2100 && !toAmountMatch[1].includes(',');
-                if (!isYear) data.amount = valStr;
-            }
-        }
-    }
-
     // B. Date & Time
-    // Updated Regex to handle missing colon: "617 pm"
     const dateTimeRegex = /(\d{1,2}\s+[A-Za-z]{3}\s+\d{4}),?\s+(\d{1,2}:?\d{2}\s*[ap]m)/i;
     const dateMatch = text.match(dateTimeRegex);
 
     if (dateMatch) {
         let timeStr = dateMatch[2];
-        // Insert colon if missing
         if (!timeStr.includes(':')) {
             timeStr = timeStr.replace(/(\d+)(\d{2}\s*[ap]m)/i, '$1:$2');
         }
@@ -236,7 +240,7 @@ const extractDataFromText = (text: string): ExtractedTransactionData => {
         }
     }
 
-    // C. IDs & Additional Info (augmenting simple data if needed)
+    // C. IDs & Additional Info
     const upiTxnIdRegex = /UPI transaction ID\s*(\d+)/i;
     const gPayTxnIdRegex = /Google transaction ID\s*([A-Za-z0-9]+)/i;
 

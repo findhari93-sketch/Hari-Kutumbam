@@ -415,6 +415,7 @@ function ExpensesContent() {
                 maxWidth="sm"
                 fullScreen={isMobile}
                 TransitionComponent={isMobile ? Transition : undefined}
+                PaperProps={{ sx: { borderRadius: isMobile ? 0 : 2 } }}
             >
                 {isMobile ? (
                     <AppBar sx={{ position: 'relative' }} elevation={0}>
