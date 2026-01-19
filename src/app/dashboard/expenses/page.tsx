@@ -275,13 +275,13 @@ function ExpensesContent() {
             {/* Header Area */}
             <Paper
                 elevation={0}
+                square
                 sx={{
                     borderBottom: 1,
                     borderColor: 'divider',
                     position: 'sticky',
                     top: 0,
                     zIndex: 20,
-                    borderRadius: 0,
                     bgcolor: 'background.paper'
                 }}
             >

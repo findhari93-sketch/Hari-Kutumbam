@@ -107,6 +107,20 @@ export default function ExpenseForm({ initialData, onSave, onCancel }: ExpenseFo
 
     const processFile = async (file: File) => {
         try {
+            // Reset fields to avoid stale draft data persisting if OCR fails to find new values
+            setAmount('');
+            setCategoryName('');
+            setSubcategory('');
+            setDescription('');
+            setPaymentMode('Cash');
+            setTransactionId('');
+            setGoogleTransactionId('');
+            setSenderName('');
+            setReceiverName('');
+            setBankName('');
+            // Reset date to today, OCR will override if date found
+            setDate(new Date().toISOString().split('T')[0]);
+
             const data = await parseScreenshot(file);
 
             if (data.amount) setAmount(data.amount);
