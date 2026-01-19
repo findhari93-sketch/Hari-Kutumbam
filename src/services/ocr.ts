@@ -223,18 +223,36 @@ const extractDataFromText = (text: string): ExtractedTransactionData => {
         }
 
         // Strategy 3: Naked Number Search (Last Resort)
-        // Look for any line that is purely a currency-formatted number (e.g. "291.00" or "3,291.00")
+        // Look for any line that is purely a currency-formatted number (e.g. "291.00", "3,291.00", "3,000")
         // This helps if symbols are completely missing or misread as non-symbols
         if (!data.amount) {
             for (const line of lines) {
-                // Match XX.XX or X,XXX.XX
-                const nakedMatch = line.match(/^\s*([\d,]+\.\d{2})\s*$/);
+                // Clean specific artifacts observed in user screenshots
+                // e.g. "3 [1] 0) 0) 0)" -> "3,000"
+                // "0)" -> "0"
+                // "[1]" -> ","
+                let cleanLine = line.replace(/0\)/g, '0')
+                    .replace(/\[1\]/g, ',')
+                    .replace(/[(){}\[\]]/g, '') // Strip remaining brackets
+                    .trim();
+
+                // Match XX.XX or X,XXX.XX or X,XXX (integer support)
+                // We require at least one comma if no decimal, or just valid digits if decimal present
+                const nakedMatch = cleanLine.match(/^\s*([\d,]+(\.\d{2})?)\s*$/);
+
                 if (nakedMatch) {
-                    // Check if it's a year-like number to avoid false positives (e.g. 2026.00 is unlikely but possible)
-                    // Usually expenses don't look exactly like "2026.00" unless it's a specific amount.
-                    // We accept it.
-                    data.amount = nakedMatch[1].replace(/,/g, '');
-                    break;
+                    const valStr = nakedMatch[1].replace(/,/g, '');
+                    const val = parseFloat(valStr);
+
+                    // Safety: Year check (1900-2100)
+                    // If it looks like a year (4 digits, no comma, no decimal), skip it (e.g. "2026")
+                    // If it has a comma (3,000) or decimal (200.00), it's likely money
+                    const isYearLike = !cleanLine.includes(',') && !cleanLine.includes('.') && val > 1900 && val < 2100;
+
+                    if (!isYearLike) {
+                        data.amount = valStr;
+                        break;
+                    }
                 }
             }
         }
