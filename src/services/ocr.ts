@@ -209,6 +209,35 @@ const extractDataFromText = (text: string): ExtractedTransactionData => {
             const m = text.match(fallbackRegex);
             if (m) data.amount = m[1].replace(/,/g, '');
         }
+
+        // Attempt 3: Multiline "To ... Amount" (for Detailed GPay)
+        if (!data.amount) {
+            const toAmountMatch = text.match(/To\s+[^\n]+\s*\n\s*(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)\b/i);
+            if (toAmountMatch) {
+                const valStr = toAmountMatch[1].replace(/,/g, '');
+                const val = parseFloat(valStr);
+                // Safety: Year check. Commas imply currency usually.
+                const isYear = val > 1900 && val < 2100 && !toAmountMatch[1].includes(',');
+                if (!isYear) data.amount = valStr;
+            }
+        }
+
+        // Strategy 3: Naked Number Search (Last Resort)
+        // Look for any line that is purely a currency-formatted number (e.g. "291.00" or "3,291.00")
+        // This helps if symbols are completely missing or misread as non-symbols
+        if (!data.amount) {
+            for (const line of lines) {
+                // Match XX.XX or X,XXX.XX
+                const nakedMatch = line.match(/^\s*([\d,]+\.\d{2})\s*$/);
+                if (nakedMatch) {
+                    // Check if it's a year-like number to avoid false positives (e.g. 2026.00 is unlikely but possible)
+                    // Usually expenses don't look exactly like "2026.00" unless it's a specific amount.
+                    // We accept it.
+                    data.amount = nakedMatch[1].replace(/,/g, '');
+                    break;
+                }
+            }
+        }
     }
 
     // Attempt to extract description (notes) if not just "Paid to..."
