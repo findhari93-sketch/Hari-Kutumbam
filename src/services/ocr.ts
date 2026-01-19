@@ -74,8 +74,9 @@ const extractGPaySimpleData = (lines: string[]): Partial<ExtractedTransactionDat
             if (!line) continue;
 
             // Fix commonly mistaken Rupee symbols: '2', '7', '?', 't' appearing before number
-            // e.g. "2 30.00" -> "30.00"
-            line = line.replace(/^[27?tT]\s+/, '');
+            // Also explicitly strip real Rupee symbol if present to isolate the number
+            // e.g. "₹ 33000" -> "33000"
+            line = line.replace(/^[27?tT₹]\s*/, '').trim();
 
             // Match simple number (no symbol required for this specific screen type)
             // e.g., "30.00"
@@ -92,7 +93,9 @@ const extractGPaySimpleData = (lines: string[]): Partial<ExtractedTransactionDat
             // Avoid extracting "Banking name:" as payee if it appears immediately
             if (payeeLine && !payeeLine.toLowerCase().startsWith('banking name')) {
                 data.receiverName = payeeLine;
-                data.description = `Paid to ${payeeLine}`;
+                if (!data.description) {
+                    data.description = `Paid to ${payeeLine}`;
+                }
             }
         }
 
@@ -104,6 +107,57 @@ const extractGPaySimpleData = (lines: string[]): Partial<ExtractedTransactionDat
         }
     }
     return data;
+};
+
+const extractDescriptionFromContext = (lines: string[], data: Partial<ExtractedTransactionData>): string | undefined => {
+    // Strategy: Look for text between Amount and "Pay again" or "Completed"
+    // The amount is usually close to the top or extracted previously.
+    // If we have an amount, we can try to find where it is in the lines (fuzzy match)
+
+    // Simplification: Look for "Pay again" or "Completed"
+    const bottomMarkerIndex = lines.findIndex(l =>
+        l.toLowerCase() === 'pay again' ||
+        l.toLowerCase() === 'completed' ||
+        l.toLowerCase().includes('completed')
+    );
+
+    if (bottomMarkerIndex > 0) {
+        // The description is usually immediately above "Pay again" or "Completed"
+        // But we must skip the Amount if it's there.
+
+        let candidateIndex = bottomMarkerIndex - 1;
+        while (candidateIndex >= 0) {
+            const line = lines[candidateIndex];
+
+            // Skip empty lines
+            if (!line) {
+                candidateIndex--;
+                continue;
+            }
+
+            // Skip Date/Time lines
+            if (line.match(/\d{1,2}\s+[A-Za-z]{3}/) || line.match(/\d{1,2}:\d{2}/)) {
+                candidateIndex--;
+                continue;
+            }
+
+            // Skip Amount lines (rough check)
+            if (line.match(/[₹\d,]+\.?\d*/)) {
+                // If it looks like just a number/currency, skip it
+                candidateIndex--;
+                continue;
+            }
+
+            // If we reached "Paid to" or "To", stop
+            if (line.startsWith('Paid to') || line.startsWith('To')) {
+                break;
+            }
+
+            // Found a candidate text line!
+            return line;
+        }
+    }
+    return undefined;
 };
 
 const extractDataFromText = (text: string): ExtractedTransactionData => {
@@ -121,10 +175,19 @@ const extractDataFromText = (text: string): ExtractedTransactionData => {
         data = { ...data, ...simpleData, paymentMode: 'UPI' };
     }
 
+    // Attempt to extract description (notes) if not just "Paid to..."
+    // We do this after simpleData to see if we can perform better than the default "Paid to X"
+    const specificDesc = extractDescriptionFromContext(lines, data);
+    if (specificDesc) {
+        data.description = specificDesc;
+    }
+
+
     // --- STRATEGY 2: Classical Regex Search (Backup / Augment) ---
 
     // A. Amount (If not found yet)
     if (!data.amount) {
+        // Added space handling after symbol: \s*
         const currencyRegex = /(?:₹|Rs\.?|INR|[\u20B9\u20A8]|(?<=^|\n)\s*[tT7?F]\.?\s*)([\d,]+(?:\.\d{0,2})?)/i;
         const amountMatch = text.match(currencyRegex);
         if (amountMatch) {

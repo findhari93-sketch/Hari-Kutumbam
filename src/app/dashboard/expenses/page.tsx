@@ -21,12 +21,23 @@ import {
     Grid,
     Divider,
     useTheme,
-    useMediaQuery
+    useMediaQuery,
+    AppBar,
+    Toolbar,
+    Slide
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import SearchIcon from '@mui/icons-material/Search';
 import CloseIcon from '@mui/icons-material/Close';
 import TuneIcon from '@mui/icons-material/Tune';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+
+const Transition = React.forwardRef(function Transition(
+    props: any,
+    ref: React.Ref<unknown>,
+) {
+    return <Slide direction="up" ref={ref} {...props} />;
+});
 
 import ExpenseTable from '@/components/expenses/ExpenseTable';
 import ExpenseForm from '@/components/expenses/ExpenseForm';
@@ -397,10 +408,35 @@ function ExpensesContent() {
             </Fab>
 
             {/* Add/Edit Modal */}
-            <Dialog open={openModal} onClose={() => setOpenModal(false)} fullWidth maxWidth="sm">
-                <DialogTitle sx={{ fontWeight: 'bold' }}>{editingExpense ? 'Edit Expense' : 'New Expense'}</DialogTitle>
+            <Dialog
+                open={openModal}
+                onClose={() => setOpenModal(false)}
+                fullWidth
+                maxWidth="sm"
+                fullScreen={isMobile}
+                TransitionComponent={isMobile ? Transition : undefined}
+            >
+                {isMobile ? (
+                    <AppBar sx={{ position: 'relative' }} elevation={0}>
+                        <Toolbar>
+                            <IconButton
+                                edge="start"
+                                color="inherit"
+                                onClick={() => setOpenModal(false)}
+                                aria-label="close"
+                            >
+                                <ArrowBackIcon />
+                            </IconButton>
+                            <Typography sx={{ ml: 2, flex: 1 }} variant="h6" component="div">
+                                {editingExpense ? 'Edit Expense' : 'New Expense'}
+                            </Typography>
+                        </Toolbar>
+                    </AppBar>
+                ) : (
+                    <DialogTitle sx={{ fontWeight: 'bold' }}>{editingExpense ? 'Edit Expense' : 'New Expense'}</DialogTitle>
+                )}
                 <DialogContent>
-                    <Box pt={1}>
+                    <Box pt={isMobile ? 2 : 1}>
                         <ExpenseForm
                             initialData={editingExpense}
                             onSave={handleSave}
